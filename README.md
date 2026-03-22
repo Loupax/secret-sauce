@@ -6,29 +6,32 @@
 > store secrets you cannot afford to lose or rotate.
 
 A local-first, multi-user CLI secret manager for Linux. Secrets are stored on disk as
-an [`age`](https://age-encryption.org/)-encrypted file and injected as environment
-variables into a child process. Sharing is handled by re-encrypting the vault to
+individual [`age`](https://age-encryption.org/)-encrypted files and injected as environment
+variables into a child process. Sharing is handled by re-encrypting each secret to
 multiple `age` X25519 recipients — no server, no cloud, no central authority.
 
 ---
 
 ## How it works
 
-`secret-sauce` maintains two files in a vault directory (default
-`~/.local/share/secret-sauce/`):
+`secret-sauce` maintains a vault directory (default `~/.local/share/secret-sauce/`):
 
-| File | Contents |
+| Path | Contents |
 |---|---|
-| `vault.age` | `age`-encrypted JSON blob of all key/value secrets |
-| `vault_recipients.txt` | Plaintext list of authorised `age` public keys (one per line) |
+| `.vault_recipients` | Plaintext list of authorised `age` public keys (one per line) |
+| `<KEY>.age` | One `age`-encrypted file per secret, named after the secret key |
+| `vault.lock` | Transient file used for `flock`-based concurrency control |
 
 Your private key is generated once at `init` time and stored in the OS keyring via the
 [Linux Secret Service API](https://specifications.freedesktop.org/secret-service/) (D-Bus).
 On Sway and other minimal Wayland compositors, a provider such as KeePassXC or
 `gnome-keyring-daemon` must be running for the keyring to be available.
 
-Every write operation (`set`, `rm`, `share add`) re-encrypts the full vault to all
-keys listed in `vault_recipients.txt`, making multi-user sharing transparent.
+Each secret is encrypted independently to all recipients listed in `.vault_recipients`.
+Adding a recipient (`share add`) re-encrypts every secret file to the updated list.
+
+Secrets are decrypted concurrently when running a command, keeping startup overhead low
+even for large vaults.
 
 File-level locking (`flock`) prevents concurrent writers from corrupting the vault.
 
@@ -107,8 +110,8 @@ secret-sauce run -- python manage.py runserver
 secret-sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
-Decrypts the vault into memory, merges the secrets into the current environment, then
-executes the given command with the combined environment. Standard I/O is proxied
+Decrypts all secrets concurrently into memory, merges them into the current environment,
+then executes the given command with the combined environment. Standard I/O is proxied
 transparently and the child's exit code is preserved.
 
 ### Manage recipients (multi-user sharing)
@@ -121,10 +124,10 @@ secret-sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqm
 secret-sauce share ls
 ```
 
-After `share add`, the vault is re-encrypted to all recipients listed in
-`vault_recipients.txt`. The new recipient can now decrypt the vault using their own
-private key (which they initialised with `secret-sauce init` in the same vault
-directory, typically shared via a git repo or network filesystem).
+After `share add`, every secret file is re-encrypted to all recipients listed in
+`.vault_recipients`. The new recipient can now decrypt secrets using their own private key
+(which they initialised with `secret-sauce init` in the same vault directory, typically
+shared via rsync, a git repo, or a network filesystem).
 
 ---
 
@@ -137,11 +140,14 @@ The vault directory is resolved in this order:
 3. `$XDG_DATA_HOME/secret-sauce/` (default: `~/.local/share/secret-sauce/`)
 
 For shared-team use, point all team members at the same directory (e.g. a shared NFS
-mount or a git-tracked directory committed without `vault.age`):
+mount or a directory synced with rsync or git):
 
 ```bash
 export SECRET_SAUCE_DIR=/mnt/team-share/secrets
 ```
+
+Because each secret is a separate file, syncing tools like `rsync` or `git` can merge
+changes from multiple machines without last-write-wins clobbering.
 
 ---
 
@@ -155,7 +161,7 @@ export SECRET_SAUCE_DIR=/mnt/team-share/secrets
   memory during an operation.
 - **Values** are never written to stdout; `ls` prints only key names.
 - **Temp files** are written inside the vault directory and atomically renamed into
-  place; partial writes do not corrupt the live vault.
+  place; partial writes do not corrupt live secret files.
 
 ---
 
@@ -202,6 +208,7 @@ secret-sauce/
 | [`github.com/spf13/cobra`](https://github.com/spf13/cobra) | CLI framework |
 | [`github.com/zalando/go-keyring`](https://github.com/zalando/go-keyring) | Linux Secret Service API (D-Bus) |
 | [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) | `flock` for OS-level file locking |
+| [`golang.org/x/sync`](https://pkg.go.dev/golang.org/x/sync) | `errgroup` for concurrent secret decryption |
 
 ---
 
