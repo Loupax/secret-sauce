@@ -1,12 +1,11 @@
 package vault
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"filippo.io/age"
@@ -22,8 +21,10 @@ func validateKey(key string) error {
 	if key == "." || key == ".." {
 		return fmt.Errorf("invalid key %q", key)
 	}
-	if strings.ContainsAny(key, "/\\") {
-		return fmt.Errorf("key %q cannot contain path separators", key)
+	for _, c := range key {
+		if c == '/' || c == '\\' {
+			return fmt.Errorf("key %q cannot contain path separators", key)
+		}
 	}
 	return nil
 }
@@ -46,11 +47,13 @@ func Init(vaultDir string, identity *age.X25519Identity) error {
 	return nil
 }
 
-func WriteSecret(vaultDir, key, value string, recipients []age.Recipient) error {
-	if err := validateKey(key); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(vaultDir, key+"-*.age.tmp")
+// encryptToFile writes a JSON-marshaled envelope to destPath using an atomic
+// temp→rename pattern.
+func encryptToFile(destPath string, envelope SecretEnvelope, recipients []age.Recipient) error {
+	uuidBase := filepath.Base(destPath)
+	uuidBase = uuidBase[:len(uuidBase)-len(".age")] // strip .age suffix
+
+	tmp, err := os.CreateTemp(filepath.Dir(destPath), uuidBase+"-*.age.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
@@ -61,7 +64,13 @@ func WriteSecret(vaultDir, key, value string, recipients []age.Recipient) error 
 		return fmt.Errorf("create age writer: %w", err)
 	}
 
-	if _, err := io.WriteString(w, value); err != nil {
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("marshal envelope: %w", err)
+	}
+
+	if _, err := w.Write(data); err != nil {
 		os.Remove(tmp.Name())
 		return fmt.Errorf("write secret: %w", err)
 	}
@@ -77,38 +86,80 @@ func WriteSecret(vaultDir, key, value string, recipients []age.Recipient) error 
 	}
 	tmp.Close()
 
-	dest := filepath.Join(vaultDir, key+".age")
-	if err := os.Rename(tmp.Name(), dest); err != nil {
+	if err := os.Rename(tmp.Name(), destPath); err != nil {
 		os.Remove(tmp.Name())
 		return fmt.Errorf("rename secret file: %w", err)
 	}
 	return nil
 }
 
+// WriteSecret writes key=value as a JSON envelope into a UUID-named .age file.
+// If a file with the same envelope.Name already exists (found by decrypting
+// with identity), it is overwritten in-place (same UUID filename). Otherwise a
+// new UUID is generated.
+func WriteSecret(vaultDir, key, value string, recipients []age.Recipient, identity age.Identity) error {
+	if err := validateKey(key); err != nil {
+		return err
+	}
+
+	// Search for an existing .age file whose envelope.Name matches key.
+	existingPath := ""
+	if identity != nil {
+		pattern := filepath.Join(vaultDir, "*.age")
+		files, err := filepath.Glob(pattern)
+		if err != nil {
+			return fmt.Errorf("glob secrets: %w", err)
+		}
+		for _, f := range files {
+			env, err := DecryptEnvelope(f, identity)
+			if err != nil {
+				continue // skip corrupt/unreadable files
+			}
+			if env.Name == key {
+				existingPath = f
+				break
+			}
+		}
+	}
+
+	var destPath string
+	if existingPath != "" {
+		destPath = existingPath
+	} else {
+		uuidStr := newUUID()
+		destPath = filepath.Join(vaultDir, uuidStr+".age")
+	}
+
+	envelope := SecretEnvelope{
+		Type:  SecretTypeEnvVar,
+		Name:  key,
+		Value: value,
+		Tags:  []string{},
+	}
+
+	return encryptToFile(destPath, envelope, recipients)
+}
+
 func ReadSecret(vaultDir, key string, identity age.Identity) (string, error) {
 	if err := validateKey(key); err != nil {
 		return "", err
 	}
-	path := filepath.Join(vaultDir, key+".age")
-	f, err := os.Open(path)
+
+	files, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", ErrKeyNotFound
+		return "", fmt.Errorf("glob secrets: %w", err)
+	}
+
+	for _, f := range files {
+		env, err := DecryptEnvelope(f, identity)
+		if err != nil {
+			continue // skip corrupt/unreadable files
 		}
-		return "", fmt.Errorf("open secret file: %w", err)
+		if env.Name == key {
+			return env.Value, nil
+		}
 	}
-	defer f.Close()
-
-	r, err := age.Decrypt(f, identity)
-	if err != nil {
-		return "", fmt.Errorf("decrypt secret: %w", err)
-	}
-
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return "", fmt.Errorf("read secret: %w", err)
-	}
-	return string(data), nil
+	return "", ErrKeyNotFound
 }
 
 func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, error) {
@@ -124,27 +175,12 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, 
 	for _, match := range matches {
 		match := match
 		g.Go(func() error {
-			base := filepath.Base(match)
-			key := strings.TrimSuffix(base, ".age")
-
-			f, err := os.Open(match)
+			env, err := DecryptEnvelope(match, identity)
 			if err != nil {
-				return fmt.Errorf("open %s: %w", base, err)
+				return fmt.Errorf("decrypt %s: %w", filepath.Base(match), err)
 			}
-			defer f.Close()
-
-			r, err := age.Decrypt(f, identity)
-			if err != nil {
-				return fmt.Errorf("decrypt %s: %w", base, err)
-			}
-
-			data, err := io.ReadAll(r)
-			if err != nil {
-				return fmt.Errorf("read %s: %w", base, err)
-			}
-
 			mu.Lock()
-			result[key] = string(data)
+			result[env.Name] = env.Value
 			mu.Unlock()
 			return nil
 		})
@@ -156,17 +192,28 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, 
 	return result, nil
 }
 
-func DeleteSecret(vaultDir, key string) error {
+// DeleteSecret removes the .age file whose envelope.Name matches key.
+func DeleteSecret(vaultDir, key string, identity age.Identity) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
-	path := filepath.Join(vaultDir, key+".age")
-	err := os.Remove(path)
+
+	files, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return ErrKeyNotFound
-		}
-		return fmt.Errorf("remove secret file: %w", err)
+		return fmt.Errorf("glob secrets: %w", err)
 	}
-	return nil
+
+	for _, f := range files {
+		env, err := DecryptEnvelope(f, identity)
+		if err != nil {
+			continue // skip corrupt/unreadable files
+		}
+		if env.Name == key {
+			if err := os.Remove(f); err != nil {
+				return fmt.Errorf("remove secret file: %w", err)
+			}
+			return nil
+		}
+	}
+	return ErrKeyNotFound
 }

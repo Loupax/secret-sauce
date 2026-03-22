@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"filippo.io/age"
 	"github.com/spf13/cobra"
@@ -62,24 +61,16 @@ var shareAddCmd = &cobra.Command{
 		}
 
 		// Re-encrypt all existing secrets with the updated recipient list
-		matches, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
+		secrets, err := vlt.ReadAllSecrets(vaultDir, identity)
 		if err != nil {
-			return fmt.Errorf("failed to list secrets: %w", err)
+			return fmt.Errorf("failed to read secrets: %w", err)
 		}
 
 		var g errgroup.Group
-		for _, match := range matches {
-			match := match
+		for key, value := range secrets {
+			key, value := key, value
 			g.Go(func() error {
-				base := filepath.Base(match)
-				key := strings.TrimSuffix(base, ".age")
-
-				value, err := vlt.ReadSecret(vaultDir, key, identity)
-				if err != nil {
-					return fmt.Errorf("failed to read secret %s: %w", key, err)
-				}
-
-				if err := vlt.WriteSecret(vaultDir, key, value, recipients); err != nil {
+				if err := vlt.WriteSecret(vaultDir, key, value, recipients, identity); err != nil {
 					return fmt.Errorf("failed to re-encrypt secret %s: %w", key, err)
 				}
 				return nil
