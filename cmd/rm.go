@@ -16,9 +16,9 @@ var rmCmd = &cobra.Command{
 			return fmt.Errorf("resolve service: %w", err)
 		}
 
-		if err := svc.DeleteSecret(vaultDir, args[0]); err != nil {
-			return err
-		}
+if err := svc.DeleteSecret(vaultDir, args[0]); err != nil {
+	return fmt.Errorf("failed to delete secret: %w", err)
+}
 
 		return nil
 	},
