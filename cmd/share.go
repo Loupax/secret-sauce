@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"filippo.io/age"
 	"github.com/spf13/cobra"
@@ -59,14 +60,24 @@ var shareAddCmd = &cobra.Command{
 			return fmt.Errorf("failed to parse identity: %w", err)
 		}
 
-		secrets, err := vlt.Read(vaultDir, identity)
+		// Re-encrypt all existing secrets with the updated recipient list
+		matches, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 		if err != nil {
-			return fmt.Errorf("failed to read vault: %w", err)
+			return fmt.Errorf("failed to list secrets: %w", err)
 		}
 
-		err = vlt.Write(vaultDir, secrets, recipients)
-		if err != nil {
-			return fmt.Errorf("failed to write vault: %w", err)
+		for _, match := range matches {
+			base := filepath.Base(match)
+			key := strings.TrimSuffix(base, ".age")
+
+			value, err := vlt.ReadSecret(vaultDir, key, identity)
+			if err != nil {
+				return fmt.Errorf("failed to read secret %s: %w", key, err)
+			}
+
+			if err := vlt.WriteSecret(vaultDir, key, value, recipients); err != nil {
+				return fmt.Errorf("failed to re-encrypt secret %s: %w", key, err)
+			}
 		}
 
 		fmt.Fprintf(os.Stdout, "Recipient %s added.\n", args[0])
@@ -85,7 +96,7 @@ var shareLsCmd = &cobra.Command{
 		}
 		defer unlock()
 
-		f, err := os.Open(filepath.Join(vaultDir, "vault_recipients.txt"))
+		f, err := os.Open(filepath.Join(vaultDir, ".vault_recipients"))
 		if err != nil {
 			return fmt.Errorf("failed to open recipients file: %w", err)
 		}
