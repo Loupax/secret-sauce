@@ -10,6 +10,7 @@ import (
 
 	"filippo.io/age"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	kr "github.com/loupax/secret-sauce/internal/keyring"
 	vlt "github.com/loupax/secret-sauce/internal/vault"
@@ -66,18 +67,26 @@ var shareAddCmd = &cobra.Command{
 			return fmt.Errorf("failed to list secrets: %w", err)
 		}
 
+		var g errgroup.Group
 		for _, match := range matches {
-			base := filepath.Base(match)
-			key := strings.TrimSuffix(base, ".age")
+			match := match
+			g.Go(func() error {
+				base := filepath.Base(match)
+				key := strings.TrimSuffix(base, ".age")
 
-			value, err := vlt.ReadSecret(vaultDir, key, identity)
-			if err != nil {
-				return fmt.Errorf("failed to read secret %s: %w", key, err)
-			}
+				value, err := vlt.ReadSecret(vaultDir, key, identity)
+				if err != nil {
+					return fmt.Errorf("failed to read secret %s: %w", key, err)
+				}
 
-			if err := vlt.WriteSecret(vaultDir, key, value, recipients); err != nil {
-				return fmt.Errorf("failed to re-encrypt secret %s: %w", key, err)
-			}
+				if err := vlt.WriteSecret(vaultDir, key, value, recipients); err != nil {
+					return fmt.Errorf("failed to re-encrypt secret %s: %w", key, err)
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return err
 		}
 
 		fmt.Fprintf(os.Stdout, "Recipient %s added.\n", args[0])

@@ -15,6 +15,19 @@ import (
 
 var ErrKeyNotFound = errors.New("key not found")
 
+func validateKey(key string) error {
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+	if key == "." || key == ".." {
+		return fmt.Errorf("invalid key %q", key)
+	}
+	if strings.ContainsAny(key, "/\\") {
+		return fmt.Errorf("key %q cannot contain path separators", key)
+	}
+	return nil
+}
+
 func Exists(vaultDir string) bool {
 	if _, err := os.Stat(filepath.Join(vaultDir, ".vault_recipients")); os.IsNotExist(err) {
 		return false
@@ -34,6 +47,9 @@ func Init(vaultDir string, identity *age.X25519Identity) error {
 }
 
 func WriteSecret(vaultDir, key, value string, recipients []age.Recipient) error {
+	if err := validateKey(key); err != nil {
+		return err
+	}
 	tmp, err := os.CreateTemp(vaultDir, key+"-*.age.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -63,12 +79,16 @@ func WriteSecret(vaultDir, key, value string, recipients []age.Recipient) error 
 
 	dest := filepath.Join(vaultDir, key+".age")
 	if err := os.Rename(tmp.Name(), dest); err != nil {
+		os.Remove(tmp.Name())
 		return fmt.Errorf("rename secret file: %w", err)
 	}
 	return nil
 }
 
 func ReadSecret(vaultDir, key string, identity age.Identity) (string, error) {
+	if err := validateKey(key); err != nil {
+		return "", err
+	}
 	path := filepath.Join(vaultDir, key+".age")
 	f, err := os.Open(path)
 	if err != nil {
@@ -137,6 +157,9 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, 
 }
 
 func DeleteSecret(vaultDir, key string) error {
+	if err := validateKey(key); err != nil {
+		return err
+	}
 	path := filepath.Join(vaultDir, key+".age")
 	err := os.Remove(path)
 	if err != nil {
