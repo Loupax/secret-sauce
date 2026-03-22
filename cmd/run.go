@@ -45,7 +45,7 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("parse identity: %w", err)
 		}
 
-		secrets, err := vlt.Read(vaultDir, identity)
+		secrets, err := vlt.ReadAllSecrets(vaultDir, identity)
 		if err != nil {
 			return fmt.Errorf("read vault: %w", err)
 		}

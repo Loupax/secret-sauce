@@ -11,7 +11,7 @@ import (
 )
 
 func ReadRecipients(vaultDir string) ([]age.Recipient, error) {
-	path := filepath.Join(vaultDir, "vault_recipients.txt")
+	path := filepath.Join(vaultDir, ".vault_recipients")
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open recipients file: %w", err)
@@ -39,7 +39,7 @@ func ReadRecipients(vaultDir string) ([]age.Recipient, error) {
 }
 
 func AppendRecipient(vaultDir string, pubkey string) error {
-	path := filepath.Join(vaultDir, "vault_recipients.txt")
+	path := filepath.Join(vaultDir, ".vault_recipients")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return fmt.Errorf("open recipients file for append: %w", err)

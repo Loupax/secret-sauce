@@ -7,8 +7,12 @@ import (
 	"filippo.io/age"
 )
 
-func TestInitAndRead(t *testing.T) {
+func TestInitAndExists(t *testing.T) {
 	vaultDir := t.TempDir()
+
+	if Exists(vaultDir) {
+		t.Fatal("expected Exists to return false on empty dir")
+	}
 
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
@@ -19,19 +23,17 @@ func TestInitAndRead(t *testing.T) {
 		t.Fatalf("Init: %v", err)
 	}
 
-	m, err := Read(vaultDir, identity)
-	if err != nil {
-		t.Fatalf("Read: %v", err)
+	if !Exists(vaultDir) {
+		t.Fatal("expected Exists to return true after Init")
 	}
-	if m == nil {
-		t.Fatal("expected non-nil map")
-	}
-	if len(m) != 0 {
-		t.Fatalf("expected empty map, got %d entries", len(m))
+
+	// Verify .vault_recipients was created
+	if _, err := os.Stat(vaultDir + "/.vault_recipients"); err != nil {
+		t.Fatalf("expected .vault_recipients to exist: %v", err)
 	}
 }
 
-func TestWriteAndRead(t *testing.T) {
+func TestWriteAndReadSecret(t *testing.T) {
 	vaultDir := t.TempDir()
 
 	identity, err := age.GenerateX25519Identity()
@@ -43,21 +45,108 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatalf("Init: %v", err)
 	}
 
-	secrets := map[string]string{"FOO": "bar", "BAZ": "qux"}
-	if err := Write(vaultDir, secrets, []age.Recipient{identity.Recipient()}); err != nil {
-		t.Fatalf("Write: %v", err)
+	recipients := []age.Recipient{identity.Recipient()}
+	if err := WriteSecret(vaultDir, "FOO", "bar", recipients); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
 	}
 
-	m, err := Read(vaultDir, identity)
+	got, err := ReadSecret(vaultDir, "FOO", identity)
 	if err != nil {
-		t.Fatalf("Read: %v", err)
+		t.Fatalf("ReadSecret: %v", err)
+	}
+	if got != "bar" {
+		t.Errorf("ReadSecret: want %q, got %q", "bar", got)
+	}
+}
+
+func TestReadSecretNotFound(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
 	}
 
-	if m["FOO"] != "bar" {
-		t.Errorf("FOO: want %q, got %q", "bar", m["FOO"])
+	_, err = ReadSecret(vaultDir, "NONEXISTENT", identity)
+	if err != ErrKeyNotFound {
+		t.Fatalf("expected ErrKeyNotFound, got: %v", err)
 	}
-	if m["BAZ"] != "qux" {
-		t.Errorf("BAZ: want %q, got %q", "qux", m["BAZ"])
+}
+
+func TestDeleteSecret(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	if err := Init(vaultDir, identity); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	recipients := []age.Recipient{identity.Recipient()}
+	if err := WriteSecret(vaultDir, "TO_DELETE", "secret", recipients); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
+	}
+
+	if err := DeleteSecret(vaultDir, "TO_DELETE"); err != nil {
+		t.Fatalf("DeleteSecret: %v", err)
+	}
+
+	_, err = ReadSecret(vaultDir, "TO_DELETE", identity)
+	if err != ErrKeyNotFound {
+		t.Fatalf("expected ErrKeyNotFound after delete, got: %v", err)
+	}
+}
+
+func TestDeleteSecretNotFound(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	err := DeleteSecret(vaultDir, "NONEXISTENT")
+	if err != ErrKeyNotFound {
+		t.Fatalf("expected ErrKeyNotFound, got: %v", err)
+	}
+}
+
+func TestReadAllSecrets(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	if err := Init(vaultDir, identity); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	recipients := []age.Recipient{identity.Recipient()}
+
+	secrets := map[string]string{
+		"FOO": "bar",
+		"BAZ": "qux",
+		"DB":  "postgres://localhost",
+	}
+	for k, v := range secrets {
+		if err := WriteSecret(vaultDir, k, v, recipients); err != nil {
+			t.Fatalf("WriteSecret(%s): %v", k, err)
+		}
+	}
+
+	got, err := ReadAllSecrets(vaultDir, identity)
+	if err != nil {
+		t.Fatalf("ReadAllSecrets: %v", err)
+	}
+
+	if len(got) != len(secrets) {
+		t.Fatalf("expected %d secrets, got %d", len(secrets), len(got))
+	}
+
+	for k, want := range secrets {
+		if got[k] != want {
+			t.Errorf("%s: want %q, got %q", k, want, got[k])
+		}
 	}
 }
 
@@ -86,17 +175,16 @@ func TestMultiRecipient(t *testing.T) {
 		t.Fatalf("ReadRecipients: %v", err)
 	}
 
-	secrets := map[string]string{"KEY": "value"}
-	if err := Write(vaultDir, secrets, recipients); err != nil {
-		t.Fatalf("Write: %v", err)
+	if err := WriteSecret(vaultDir, "KEY", "value", recipients); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
 	}
 
-	m, err := Read(vaultDir, identity2)
+	got, err := ReadSecret(vaultDir, "KEY", identity2)
 	if err != nil {
-		t.Fatalf("Read with identity2: %v", err)
+		t.Fatalf("ReadSecret with identity2: %v", err)
 	}
-	if m["KEY"] != "value" {
-		t.Errorf("KEY: want %q, got %q", "value", m["KEY"])
+	if got != "value" {
+		t.Errorf("KEY: want %q, got %q", "value", got)
 	}
 }
 
@@ -113,7 +201,7 @@ func TestReadRecipients(t *testing.T) {
 	}
 
 	content := identity1.Recipient().String() + "\n" + identity2.Recipient().String() + "\n"
-	recipientsPath := vaultDir + "/vault_recipients.txt"
+	recipientsPath := vaultDir + "/.vault_recipients"
 	if err := os.WriteFile(recipientsPath, []byte(content), 0600); err != nil {
 		t.Fatalf("write recipients file: %v", err)
 	}
@@ -124,26 +212,5 @@ func TestReadRecipients(t *testing.T) {
 	}
 	if len(recipients) != 2 {
 		t.Fatalf("expected 2 recipients, got %d", len(recipients))
-	}
-}
-
-func TestExists(t *testing.T) {
-	vaultDir := t.TempDir()
-
-	if Exists(vaultDir) {
-		t.Fatal("expected Exists to return false on empty dir")
-	}
-
-	identity, err := age.GenerateX25519Identity()
-	if err != nil {
-		t.Fatalf("generate identity: %v", err)
-	}
-
-	if err := Init(vaultDir, identity); err != nil {
-		t.Fatalf("Init: %v", err)
-	}
-
-	if !Exists(vaultDir) {
-		t.Fatal("expected Exists to return true after Init")
 	}
 }

@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
-	"filippo.io/age"
 	"github.com/spf13/cobra"
 
-	kr "github.com/loupax/secret-sauce/internal/keyring"
 	vlt "github.com/loupax/secret-sauce/internal/vault"
 )
 
@@ -24,28 +23,16 @@ var lsCmd = &cobra.Command{
 		}
 		defer unlock()
 
-		privKey, err := kr.Load(vaultDir)
-		if errors.Is(err, kr.ErrNoSecretService) {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+		matches, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 		if err != nil {
-			return fmt.Errorf("failed to load key from keyring: %w", err)
+			return fmt.Errorf("failed to list secrets: %w", err)
 		}
 
-		identity, err := age.ParseX25519Identity(privKey)
-		if err != nil {
-			return fmt.Errorf("failed to parse identity: %w", err)
-		}
-
-		secrets, err := vlt.Read(vaultDir, identity)
-		if err != nil {
-			return fmt.Errorf("failed to read vault: %w", err)
-		}
-
-		keys := make([]string, 0, len(secrets))
-		for k := range secrets {
-			keys = append(keys, k)
+		keys := make([]string, 0, len(matches))
+		for _, match := range matches {
+			name := filepath.Base(match)
+			key := strings.TrimSuffix(name, ".age")
+			keys = append(keys, key)
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
