@@ -88,7 +88,11 @@ Read operations acquire a `LOCK_SH` `flock(2)` on `vault.lock`. Write operations
 - **Secret Service auto-lock:** Configure your Secret Service provider to require re-authentication after inactivity (KeePassXC: *Tools → Settings → Security → Lock database after inactivity*; GNOME Keyring locks automatically on screen lock).
 - **Process environment isolation:** The `run` subcommand releases the vault lock and passes secrets only to the immediate child process's environment. Secrets are not written to any file or exported to the parent shell. The exposure window is bounded to the child process lifetime.
 
-**Note on the "daemon" pattern:** This tool does not implement a background daemon or IPC socket. Keyring access is a direct, synchronous D-Bus call per invocation. There is no long-lived process holding decrypted key material between commands. Each invocation's private key access begins and ends within the command's execution lifetime, which limits the blast radius of process-level attacks.
+**Note on the daemon and IPC socket:** This tool optionally runs a background daemon (`secret-sauce daemon`) that holds the decrypted private key in memory across invocations. The daemon binds a Unix socket at `$XDG_RUNTIME_DIR/secret-sauce.sock` (mode `0600`, owner-only) and shuts down automatically after a configurable idle timeout (default: 15 minutes). The idle timeout meaningfully reduces the key-in-memory exposure window compared to a persistent daemon.
+
+When the daemon is not running, each invocation performs a direct, synchronous D-Bus call and holds the private key only for the duration of that command. Auto-spawn behavior (on by default) means the daemon may start on first use without explicit user action; users who prefer the stateless path can set `"auto_spawn": false` in `~/.config/secret-sauce/config.json`.
+
+The Unix socket is accessible to any process running as the same user. An adversary with code execution in the user session can connect to the socket and request `OpReadAll`, which is equivalent to querying D-Bus directly. See `SECURITY_AUDIT.md` (FINDING-001 through FINDING-003) for the specific IPC attack surface introduced by the daemon.
 
 **Risk disposition:** Explicitly accepted. Mitigated at the OS layer.
 
