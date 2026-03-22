@@ -40,53 +40,10 @@ File-level locking (`flock`) prevents concurrent writers from corrupting the vau
 - Go 1.25+ (to build from source)
 - A running [Secret Service](https://specifications.freedesktop.org/secret-service/)
   provider on D-Bus:
-  - **KeePassXC** — see [KeePassXC setup](#keepassxc-setup-sway--minimal-wayland) below
+  - **KeePassXC** — see [docs/keepassxc.md](docs/keepassxc.md) for setup and systemd service instructions
   - **GNOME Keyring** — usually running automatically in GNOME sessions; start manually
     with `/usr/lib/gnome-keyring-daemon --start`
   - **KWallet** (KDE) — supported via the Secret Service bridge
-
----
-
-## KeePassXC setup (Sway / minimal Wayland)
-
-KeePassXC requires a few steps beyond just installing it before the Secret Service
-integration works correctly.
-
-**1. Enable Secret Service integration**
-
-*Tools → Settings → Secret Service Integration → Enable KeePassXC Secret Service
-Integration*
-
-Restart KeePassXC after toggling this — the setting does not take effect until restart.
-
-**2. Expose at least one group**
-
-On the same settings page, check at least one database group under
-*"Expose entries of group"*. Without an exposed group KeePassXC does not register a
-default collection on D-Bus, and `secret-sauce` will fail with an error about not being
-able to unlock `/org/freedesktop/secrets/aliases/default`.
-
-**3. Keep a database open and unlocked**
-
-The Secret Service is only available while KeePassXC has an unlocked database. If you
-lock the database or close KeePassXC, any subsequent `secret-sauce` command will fail
-until you unlock it again.
-
-**4. Grant access when prompted**
-
-The first time `secret-sauce` contacts the Secret Service, KeePassXC will show an
-access-request dialog. Bring the KeePassXC window to the front and click *Allow*.
-
-**Verify the setup is working:**
-
-```bash
-busctl --user call org.freedesktop.secrets \
-  /org/freedesktop/secrets/aliases/default \
-  org.freedesktop.DBus.Peer Ping
-```
-
-A successful reply means the default collection is reachable and `secret-sauce init`
-should work.
 
 ---
 
