@@ -6,11 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"filippo.io/age"
 	"github.com/spf13/cobra"
-
-	kr "github.com/loupax/secret-sauce/internal/keyring"
-	vlt "github.com/loupax/secret-sauce/internal/vault"
 )
 
 var runCmd = &cobra.Command{
@@ -26,32 +22,15 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("usage: secret-sauce run [--] <command> [args...]")
 		}
 
-		unlock, err := vlt.AcquireShared(vaultDir)
+		svc, err := resolveService()
 		if err != nil {
-			return fmt.Errorf("acquire shared lock: %w", err)
+			return fmt.Errorf("resolve service: %w", err)
 		}
 
-		privKey, err := kr.Load(vaultDir)
-		if err != nil {
-			if errors.Is(err, kr.ErrNoSecretService) {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			return fmt.Errorf("load private key: %w", err)
-		}
-
-		identity, err := age.ParseX25519Identity(privKey)
-		if err != nil {
-			return fmt.Errorf("parse identity: %w", err)
-		}
-
-		secrets, err := vlt.ReadAllSecrets(vaultDir, identity)
+		secrets, err := svc.ReadAllSecrets(vaultDir)
 		if err != nil {
 			return fmt.Errorf("read vault: %w", err)
 		}
-
-		// Release lock before exec so child processes can acquire it.
-		unlock()
 
 		combined := os.Environ()
 		for k, v := range secrets {
