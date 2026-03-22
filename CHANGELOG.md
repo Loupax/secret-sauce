@@ -10,6 +10,41 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Hybrid daemon / fallback execution model** — commands that require the private key
+  (`run`, `set`, `rm`) now resolve their execution path dynamically:
+  1. If the Unix socket (`$XDG_RUNTIME_DIR/secret-sauce.sock`) is responsive, the request
+     is sent to the background daemon over IPC.
+  2. If the socket is absent and `auto_spawn: true`, the CLI spawns a detached daemon
+     process (`syscall.Setsid`), waits for it to become ready, then uses IPC.
+  3. If the socket is absent and `auto_spawn: false`, the CLI falls back to querying the
+     OS keyring directly in the foreground — identical to prior behaviour.
+
+- **`daemon start` / `stop` / `status` commands** — explicit lifecycle management for the
+  background daemon process.
+
+- **Background daemon server** (`internal/daemon`) — listens on a `0600` Unix Domain
+  Socket, caches the `age` private key after its first keyring access, and handles
+  `read_all`, `write`, `delete`, `ping`, and `shutdown` IPC operations. Shuts down
+  automatically after the configured idle timeout.
+
+- **Idle timeout** — the daemon resets a timer on every request. If no request arrives
+  within the timeout period (default `15m`), the daemon removes the socket and exits.
+
+- **`VaultService` interface** (`internal/service`) — strategy pattern abstraction over
+  the two execution backends. `LocalVaultService` calls the crypto and keyring packages
+  directly; `IPCVaultService` marshals requests over the Unix socket. Commands accept
+  whichever implementation `resolveService()` returns.
+
+- **Configuration file** (`~/.config/secret-sauce/config.json`) — supports `timeout`
+  (Go duration string) and `auto_spawn` (boolean). Defaults to `{"timeout":"15m","auto_spawn":true}`
+  when the file is absent.
+
+- **IPC protocol** (`internal/ipc`) — newline-delimited JSON request/response over a
+  Unix Domain Socket. Socket path: `$XDG_RUNTIME_DIR/secret-sauce.sock`, falling back to
+  `/tmp/secret-sauce-<uid>.sock` when `XDG_RUNTIME_DIR` is unset.
+
 ### Changed
 
 - **Directory-as-vault storage** — the vault is now a directory of individual
@@ -79,5 +114,6 @@ All notable changes to this project will be documented here.
 - Full vault deletion / re-initialisation helper.
 - Export / import / backup commands.
 - End-to-end integration tests against a real Secret Service daemon.
+- Integration tests for IPC and daemon lifecycle.
 - Shell completion scripts.
 - Pre-built binaries / install script.

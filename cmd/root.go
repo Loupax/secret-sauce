@@ -53,4 +53,5 @@ func init() {
 	rootCmd.AddCommand(lsCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(shareCmd)
+	rootCmd.AddCommand(daemonCmd)
 }

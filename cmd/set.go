@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	vlt "github.com/loupax/secret-sauce/internal/vault"
 )
 
 var setCmd = &cobra.Command{
@@ -13,18 +11,12 @@ var setCmd = &cobra.Command{
 	Short: "Set a secret",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		unlock, err := vlt.AcquireExclusive(vaultDir)
+		svc, err := resolveService()
 		if err != nil {
-			return fmt.Errorf("failed to acquire vault lock: %w", err)
-		}
-		defer unlock()
-
-		recipients, err := vlt.ReadRecipients(vaultDir)
-		if err != nil {
-			return fmt.Errorf("failed to read recipients: %w", err)
+			return fmt.Errorf("resolve service: %w", err)
 		}
 
-		if err := vlt.WriteSecret(vaultDir, args[0], args[1], recipients); err != nil {
+		if err := svc.WriteSecret(vaultDir, args[0], args[1]); err != nil {
 			return fmt.Errorf("failed to write secret: %w", err)
 		}
 

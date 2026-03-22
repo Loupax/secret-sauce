@@ -35,6 +35,20 @@ even for large vaults.
 
 File-level locking (`flock`) prevents concurrent writers from corrupting the vault.
 
+### Hybrid execution model
+
+Commands that need the private key (`run`) choose their execution path dynamically:
+
+1. **Daemon available** — the request is sent over a Unix Domain Socket to the background
+   daemon, which has the private key cached in memory. No D-Bus prompt is fired.
+2. **No daemon + `auto_spawn: true`** (default) — the CLI automatically spawns a detached
+   daemon, waits for it to be ready, then sends the request over IPC.
+3. **No daemon + `auto_spawn: false`** — the CLI queries the OS keyring directly in the
+   foreground (same behaviour as before the daemon was introduced).
+
+The daemon idles out after a configurable timeout (default 15 minutes) and removes its
+socket on shutdown.
+
 ---
 
 ## Requirements
@@ -47,6 +61,9 @@ File-level locking (`flock`) prevents concurrent writers from corrupting the vau
   - **GNOME Keyring** — usually running automatically in GNOME sessions; start manually
     with `/usr/lib/gnome-keyring-daemon --start`
   - **KWallet** (KDE) — supported via the Secret Service bridge
+
+> The daemon only needs to contact the Secret Service **once** at startup. After that,
+> D-Bus prompts are bypassed for the lifetime of the daemon session.
 
 ---
 
@@ -114,6 +131,30 @@ Decrypts all secrets concurrently into memory, merges them into the current envi
 then executes the given command with the combined environment. Standard I/O is proxied
 transparently and the child's exit code is preserved.
 
+Uses the daemon if available (see below), otherwise falls back to querying the keyring
+directly.
+
+### Manage the daemon
+
+```bash
+# Start the background daemon (detaches from the current session)
+secret-sauce daemon start
+
+# Check whether the daemon is running
+secret-sauce daemon status
+
+# Shut the daemon down gracefully
+secret-sauce daemon stop
+```
+
+The daemon caches the private key in memory after its first keyring access. Subsequent
+`run` calls use IPC over a Unix socket
+(`$XDG_RUNTIME_DIR/secret-sauce.sock`) and never trigger a D-Bus prompt.
+
+The daemon shuts itself down after the idle timeout (default `15m`) with no activity,
+zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the next
+`run` call will start a fresh daemon automatically.
+
 ### Manage recipients (multi-user sharing)
 
 ```bash
@@ -151,6 +192,26 @@ changes from multiple machines without last-write-wins clobbering.
 
 ---
 
+## Configuration
+
+`~/.config/secret-sauce/config.json` (created automatically with defaults if absent):
+
+```json
+{
+  "timeout": "15m",
+  "auto_spawn": true
+}
+```
+
+| Field | Default | Description |
+|---|---|---|
+| `timeout` | `"15m"` | Idle period after which the daemon shuts itself down |
+| `auto_spawn` | `true` | Automatically start the daemon when a command needs it |
+
+Set `auto_spawn: false` to always query the keyring directly without a daemon.
+
+---
+
 ## Security model
 
 - **Protection goal:** secrets at rest and during synchronisation.
@@ -158,7 +219,9 @@ changes from multiple machines without last-write-wins clobbering.
   keyboard or can run processes as your user, they can decrypt the vault. The tool does
   not defend against an attacker with local session access.
 - **Private keys** never touch disk — they live only in the OS keyring and in process
-  memory during an operation.
+  memory during an operation (or in the daemon's memory while it is running).
+- **Daemon socket** is created with `0600` permissions, restricting access to the
+  owning user only.
 - **Values** are never written to stdout; `ls` prints only key names.
 - **Temp files** are written inside the vault directory and atomically renamed into
   place; partial writes do not corrupt live secret files.
@@ -177,8 +240,14 @@ secret-sauce/
 │   ├── rm.go
 │   ├── ls.go
 │   ├── run.go
-│   └── share.go
+│   ├── share.go
+│   ├── daemon.go             # daemon start / stop / status commands
+│   └── service_resolver.go   # hybrid execution decision tree
 └── internal/
+    ├── config/               # config.json loading with defaults
+    ├── ipc/                  # Unix socket protocol (request/response types)
+    ├── daemon/               # daemon server (idle timeout, graceful shutdown)
+    ├── service/              # VaultService interface + Local and IPC implementations
     ├── keyring/              # OS keyring wrapper (go-keyring + D-Bus error handling)
     └── vault/                # age encryption, file locking, recipient management
         ├── lock.go
@@ -209,6 +278,7 @@ secret-sauce/
 | [`github.com/zalando/go-keyring`](https://github.com/zalando/go-keyring) | Linux Secret Service API (D-Bus) |
 | [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) | `flock` for OS-level file locking |
 | [`golang.org/x/sync`](https://pkg.go.dev/golang.org/x/sync) | `errgroup` for concurrent secret decryption |
+| Go standard library `net` | Unix Domain Socket IPC between CLI client and daemon |
 
 ---
 
