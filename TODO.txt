@@ -1,0 +1,1 @@
+- Secrets should be immutable. If editing is introduced, implement it as: copy the secret, apply changes, write the new copy to disk (new UUID), then delete the old one. This ensures sync works correctly by treating every mutation as a delete+create rather than an in-place update.
