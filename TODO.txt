@@ -1,1 +1,3 @@
-- Secrets should be immutable. If editing is introduced, implement it as: copy the secret, apply changes, write the new copy to disk (new UUID), then delete the old one. This ensures sync works correctly by treating every mutation as a delete+create rather than an in-place update.
+TODO: Implement Atomic File Replacement for all vault write operations.
+- Do not change a secret's UUID when editing its value.
+- To prevent file corruption during rsync/daemon reads, all writes must follow the atomic pattern: Write to `[UUID].age.tmp`, call `fsync`, then use `os.Rename` to overwrite the existing `[UUID].age`.
