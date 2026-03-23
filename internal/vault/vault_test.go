@@ -2,6 +2,7 @@ package vault
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"filippo.io/age"
@@ -46,7 +47,7 @@ func TestWriteAndReadSecret(t *testing.T) {
 	}
 
 	recipients := []age.Recipient{identity.Recipient()}
-	if err := WriteSecret(vaultDir, "FOO", "bar", recipients); err != nil {
+	if err := WriteSecret(vaultDir, "FOO", "bar", recipients, identity); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
@@ -56,6 +57,48 @@ func TestWriteAndReadSecret(t *testing.T) {
 	}
 	if got != "bar" {
 		t.Errorf("ReadSecret: want %q, got %q", "bar", got)
+	}
+}
+
+func TestWriteSecretOverwrite(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	if err := Init(vaultDir, identity); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	recipients := []age.Recipient{identity.Recipient()}
+
+	// Write initial value
+	if err := WriteSecret(vaultDir, "FOO", "bar", recipients, identity); err != nil {
+		t.Fatalf("WriteSecret (first): %v", err)
+	}
+
+	// Overwrite with new value
+	if err := WriteSecret(vaultDir, "FOO", "updated", recipients, identity); err != nil {
+		t.Fatalf("WriteSecret (overwrite): %v", err)
+	}
+
+	got, err := ReadSecret(vaultDir, "FOO", identity)
+	if err != nil {
+		t.Fatalf("ReadSecret after overwrite: %v", err)
+	}
+	if got != "updated" {
+		t.Errorf("ReadSecret after overwrite: want %q, got %q", "updated", got)
+	}
+
+	// Verify only one .age file exists (overwrite, not duplicate)
+	files, err := filepath.Glob(vaultDir + "/*.age")
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	if len(files) != 1 {
+		t.Errorf("expected 1 .age file after overwrite, got %d", len(files))
 	}
 }
 
@@ -86,11 +129,11 @@ func TestDeleteSecret(t *testing.T) {
 	}
 
 	recipients := []age.Recipient{identity.Recipient()}
-	if err := WriteSecret(vaultDir, "TO_DELETE", "secret", recipients); err != nil {
+	if err := WriteSecret(vaultDir, "TO_DELETE", "secret", recipients, identity); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
-	if err := DeleteSecret(vaultDir, "TO_DELETE"); err != nil {
+	if err := DeleteSecret(vaultDir, "TO_DELETE", identity); err != nil {
 		t.Fatalf("DeleteSecret: %v", err)
 	}
 
@@ -103,7 +146,12 @@ func TestDeleteSecret(t *testing.T) {
 func TestDeleteSecretNotFound(t *testing.T) {
 	vaultDir := t.TempDir()
 
-	err := DeleteSecret(vaultDir, "NONEXISTENT")
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	err = DeleteSecret(vaultDir, "NONEXISTENT", identity)
 	if err != ErrKeyNotFound {
 		t.Fatalf("expected ErrKeyNotFound, got: %v", err)
 	}
@@ -129,7 +177,7 @@ func TestReadAllSecrets(t *testing.T) {
 		"DB":  "postgres://localhost",
 	}
 	for k, v := range secrets {
-		if err := WriteSecret(vaultDir, k, v, recipients); err != nil {
+		if err := WriteSecret(vaultDir, k, v, recipients, identity); err != nil {
 			t.Fatalf("WriteSecret(%s): %v", k, err)
 		}
 	}
@@ -175,7 +223,7 @@ func TestMultiRecipient(t *testing.T) {
 		t.Fatalf("ReadRecipients: %v", err)
 	}
 
-	if err := WriteSecret(vaultDir, "KEY", "value", recipients); err != nil {
+	if err := WriteSecret(vaultDir, "KEY", "value", recipients, identity1); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
