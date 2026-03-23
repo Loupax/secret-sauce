@@ -15,7 +15,7 @@ var lsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		svc, err := resolveService()
 		if err != nil {
-			return fmt.Errorf("resolve service: %w", err)
+return fmt.Errorf("failed to initialize vault service: %w", err)
 		}
 
 		secrets, err := svc.ReadAllSecrets(vaultDir)
