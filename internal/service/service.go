@@ -1,9 +1,12 @@
 package service
 
+import "github.com/loupax/secret-sauce/internal/vault"
+
 // VaultService is the Strategy interface. Both the IPC client and local
 // execution path implement this. Commands (run, set, rm) accept a VaultService.
 type VaultService interface {
-	ReadAllSecrets(vaultDir string) (map[string]string, error)
-	WriteSecret(vaultDir, key, value string) error
+	ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error)
+	ReadSecret(vaultDir, key string) (vault.SecretInfo, error)
+	WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error
 	DeleteSecret(vaultDir, key string) error
 }

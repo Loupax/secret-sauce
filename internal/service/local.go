@@ -24,7 +24,7 @@ func (s *LocalVaultService) loadIdentity(vaultDir string) (age.Identity, error) 
 	return identity, nil
 }
 
-func (s *LocalVaultService) ReadAllSecrets(vaultDir string) (map[string]string, error) {
+func (s *LocalVaultService) ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error) {
 	identity, err := s.loadIdentity(vaultDir)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,22 @@ func (s *LocalVaultService) ReadAllSecrets(vaultDir string) (map[string]string, 
 	return vault.ReadAllSecrets(vaultDir, identity)
 }
 
-func (s *LocalVaultService) WriteSecret(vaultDir, key, value string) error {
+func (s *LocalVaultService) ReadSecret(vaultDir, key string) (vault.SecretInfo, error) {
+	identity, err := s.loadIdentity(vaultDir)
+	if err != nil {
+		return vault.SecretInfo{}, err
+	}
+
+	unlock, err := vault.AcquireShared(vaultDir)
+	if err != nil {
+		return vault.SecretInfo{}, fmt.Errorf("acquire shared lock: %w", err)
+	}
+	defer unlock()
+
+	return vault.ReadSecret(vaultDir, key, identity)
+}
+
+func (s *LocalVaultService) WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error {
 	identity, err := s.loadIdentity(vaultDir)
 	if err != nil {
 		return err
@@ -56,7 +71,7 @@ func (s *LocalVaultService) WriteSecret(vaultDir, key, value string) error {
 		return fmt.Errorf("read recipients: %w", err)
 	}
 
-	return vault.WriteSecret(vaultDir, key, value, recipients, identity)
+	return vault.WriteSecret(vaultDir, key, value, secretType, recipients, identity)
 }
 
 func (s *LocalVaultService) DeleteSecret(vaultDir, key string) error {

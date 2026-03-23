@@ -96,12 +96,35 @@ Vault initialized.
 Public key (share this with teammates): age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 ```
 
+### Secret types
+
+Secrets have an explicit type that controls how they are consumed:
+
+| Type | Description |
+|---|---|
+| `environment` | Injected as an environment variable when running `secret-sauce run` |
+| `file` | Stored encrypted but not injected as an environment variable; intended for file-based secrets (certificates, SSH keys, etc.) |
+
 ### Add / update a secret
 
 ```bash
-secret-sauce set DATABASE_URL "postgres://user:pass@localhost/mydb"
-secret-sauce set API_KEY "sk-..."
+secret-sauce set environment DATABASE_URL "postgres://user:pass@localhost/mydb"
+secret-sauce set environment API_KEY "sk-..."
+secret-sauce set file TLS_CERT "$(cat server.crt)"
 ```
+
+The first argument is the type (`environment` or `file`). Only `environment` secrets are injected when running commands.
+
+### Edit a secret in your editor
+
+```bash
+secret-sauce edit environment DATABASE_URL
+secret-sauce edit file TLS_CERT
+```
+
+Opens the current value in `$EDITOR` (falls back to `vi`, then `nano`). When the editor
+exits cleanly, the updated content is re-encrypted and persisted. If the editor exits with
+a non-zero code, the vault is left unchanged.
 
 ### Remove a secret
 
@@ -117,7 +140,15 @@ Returns an error if the key does not exist.
 secret-sauce ls
 ```
 
-Prints key names only — values are never output to the terminal.
+Prints tab-separated `<type>\t<key>` lines, sorted alphabetically by key. Values are
+never output to the terminal. The tab-separated format is suitable for UNIX pipeline
+composition:
+
+```
+environment	API_KEY
+environment	DATABASE_URL
+file	TLS_CERT
+```
 
 ### Run a command with secrets injected
 
@@ -127,9 +158,10 @@ secret-sauce run -- python manage.py runserver
 secret-sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
-Decrypts all secrets concurrently into memory, merges them into the current environment,
-then executes the given command with the combined environment. Standard I/O is proxied
-transparently and the child's exit code is preserved.
+Decrypts all `environment`-typed secrets concurrently into memory, merges them into the
+current environment, then executes the given command with the combined environment.
+Secrets with type `file` are not injected as environment variables. Standard I/O is
+proxied transparently and the child's exit code is preserved.
 
 Uses the daemon if available (see below), otherwise falls back to querying the keyring
 directly.
@@ -237,6 +269,7 @@ secret-sauce/
 │   ├── root.go               # vault directory resolution, persistent flags
 │   ├── init.go
 │   ├── set.go
+│   ├── edit.go
 │   ├── rm.go
 │   ├── ls.go
 │   ├── run.go

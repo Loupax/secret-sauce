@@ -15,7 +15,7 @@ var lsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		svc, err := resolveService()
 		if err != nil {
-return fmt.Errorf("failed to initialize vault service: %w", err)
+			return fmt.Errorf("failed to initialize vault service: %w", err)
 		}
 
 		secrets, err := svc.ReadAllSecrets(vaultDir)
@@ -28,8 +28,8 @@ return fmt.Errorf("failed to initialize vault service: %w", err)
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		for _, key := range keys {
-			fmt.Fprintln(os.Stdout, key)
+		for _, k := range keys {
+			fmt.Fprintf(os.Stdout, "%s\t%s\n", secrets[k].Type, k)
 		}
 
 		return nil

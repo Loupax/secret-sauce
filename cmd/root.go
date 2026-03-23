@@ -49,6 +49,7 @@ func init() {
 
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(setCmd)
+	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(rmCmd)
 	rootCmd.AddCommand(lsCmd)
 	rootCmd.AddCommand(runCmd)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loupax/secret-sauce/internal/ipc"
+	"github.com/loupax/secret-sauce/internal/vault"
 )
 
 // IPCVaultService satisfies VaultService by sending JSON requests over the Unix socket.
@@ -44,7 +45,7 @@ func (s *IPCVaultService) roundTrip(req ipc.Request) (ipc.Response, error) {
 	return resp, nil
 }
 
-func (s *IPCVaultService) ReadAllSecrets(vaultDir string) (map[string]string, error) {
+func (s *IPCVaultService) ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error) {
 	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpReadAll, VaultDir: vaultDir})
 	if err != nil {
 		return nil, err
@@ -52,11 +53,41 @@ func (s *IPCVaultService) ReadAllSecrets(vaultDir string) (map[string]string, er
 	if !resp.OK {
 		return nil, fmt.Errorf("daemon error: %s", resp.Error)
 	}
-	return resp.Secrets, nil
+	result := make(map[string]vault.SecretInfo, len(resp.Secrets))
+	for k, meta := range resp.Secrets {
+		result[k] = vault.SecretInfo{
+			Type:  vault.SecretType(meta.Type),
+			Value: meta.Value,
+		}
+	}
+	return result, nil
 }
 
-func (s *IPCVaultService) WriteSecret(vaultDir, key, value string) error {
-	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpWrite, VaultDir: vaultDir, Key: key, Value: value})
+func (s *IPCVaultService) ReadSecret(vaultDir, key string) (vault.SecretInfo, error) {
+	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpReadOne, VaultDir: vaultDir, Key: key})
+	if err != nil {
+		return vault.SecretInfo{}, err
+	}
+	if !resp.OK {
+		return vault.SecretInfo{}, fmt.Errorf("daemon error: %s", resp.Error)
+	}
+	if resp.Secret == nil {
+		return vault.SecretInfo{}, vault.ErrKeyNotFound
+	}
+	return vault.SecretInfo{
+		Type:  vault.SecretType(resp.Secret.Type),
+		Value: resp.Secret.Value,
+	}, nil
+}
+
+func (s *IPCVaultService) WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error {
+	resp, err := s.roundTrip(ipc.Request{
+		Op:       ipc.OpWrite,
+		VaultDir: vaultDir,
+		Key:      key,
+		Value:    value,
+		Type:     string(secretType),
+	})
 	if err != nil {
 		return err
 	}
