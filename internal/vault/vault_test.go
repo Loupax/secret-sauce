@@ -93,7 +93,7 @@ func TestWriteSecretOverwrite(t *testing.T) {
 	}
 
 	// Verify only one .age file exists (overwrite, not duplicate)
-	files, err := filepath.Glob(vaultDir + "/*.age")
+files, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 	if err != nil {
 		t.Fatalf("glob: %v", err)
 	}
