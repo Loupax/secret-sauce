@@ -90,7 +90,10 @@ func encryptToFile(destPath string, envelope SecretEnvelope, recipients []age.Re
 		os.Remove(tmp.Name())
 		return fmt.Errorf("sync temp file: %w", err)
 	}
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("close temp file: %w", err)
+	}
 
 	if err := os.Rename(tmp.Name(), destPath); err != nil {
 		os.Remove(tmp.Name())
@@ -179,7 +182,6 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]SecretIn
 	var g errgroup.Group
 
 	for _, match := range matches {
-		match := match
 		g.Go(func() error {
 			env, err := DecryptEnvelope(match, identity)
 			if err != nil {

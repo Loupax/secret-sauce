@@ -123,7 +123,6 @@ func (s *Server) refreshIndexIfStale(vaultDir string) error {
 	var mu sync.Mutex
 	g, _ := errgroup.WithContext(context.Background())
 	for _, f := range files {
-		f := f
 		g.Go(func() error {
 			env, err := vault.DecryptEnvelope(f, parsedIdentity)
 			if err != nil {
