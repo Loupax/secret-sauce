@@ -9,4 +9,5 @@ type VaultService interface {
 	ReadSecret(vaultDir, key string) (vault.SecretInfo, error)
 	WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error
 	DeleteSecret(vaultDir, key string) error
+	GetPublicKey(vaultDir string) (string, error)
 }

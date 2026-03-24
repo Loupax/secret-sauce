@@ -217,6 +217,9 @@ zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the
 ### Manage recipients (multi-user sharing)
 
 ```bash
+# Print your own public key (share this with teammates so they can run 'share add')
+secret-sauce share pubkey
+
 # Add a teammate by their public key
 secret-sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 

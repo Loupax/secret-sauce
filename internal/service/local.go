@@ -74,6 +74,14 @@ func (s *LocalVaultService) WriteSecret(vaultDir, key, value string, secretType 
 	return vault.WriteSecret(vaultDir, key, value, secretType, recipients, identity)
 }
 
+func (s *LocalVaultService) GetPublicKey(vaultDir string) (string, error) {
+	identity, err := s.loadIdentity(vaultDir)
+	if err != nil {
+		return "", err
+	}
+	return identity.(*age.X25519Identity).Recipient().String(), nil
+}
+
 func (s *LocalVaultService) DeleteSecret(vaultDir, key string) error {
 	identity, err := s.loadIdentity(vaultDir)
 	if err != nil {

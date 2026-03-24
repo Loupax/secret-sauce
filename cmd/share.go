@@ -117,7 +117,26 @@ var shareLsCmd = &cobra.Command{
 	},
 }
 
+var sharePubkeyCmd = &cobra.Command{
+	Use:   "pubkey",
+	Short: "Print your public key for sharing with teammates",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		svc, err := resolveService()
+		if err != nil {
+			return err
+		}
+		pubKey, err := svc.GetPublicKey(vaultDir)
+		if err != nil {
+			return err
+		}
+		fmt.Println(pubKey)
+		return nil
+	},
+}
+
 func init() {
 	shareCmd.AddCommand(shareAddCmd)
 	shareCmd.AddCommand(shareLsCmd)
+	shareCmd.AddCommand(sharePubkeyCmd)
 }
