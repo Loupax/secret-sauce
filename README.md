@@ -1,5 +1,7 @@
 # secret-sauce
 
+[![CI](https://github.com/loupax/secret-sauce/actions/workflows/ci.yml/badge.svg)](https://github.com/loupax/secret-sauce/actions/workflows/ci.yml)
+
 > **STATUS: PRE-ALPHA — NOT READY FOR USE**
 > This project is under active development. The CLI surface, storage format, and key
 > management behaviour may change without notice between commits. Do not use this to
