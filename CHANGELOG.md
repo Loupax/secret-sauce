@@ -83,6 +83,10 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- **GitHub Actions CI pipeline** — automated lint, build, and test on every push to
+  `main` and on pull requests. Runs on `ubuntu-latest` using Go 1.25.0. Includes
+  `golangci-lint` for static analysis and the Go race detector (`-race`) during tests.
+
 - **Hybrid daemon / fallback execution model** — commands that require the private key
   (`run`, `set`, `rm`) now resolve their execution path dynamically:
   1. If the Unix socket (`$XDG_RUNTIME_DIR/secret-sauce.sock`) is responsive, the request

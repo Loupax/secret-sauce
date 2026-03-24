@@ -9,7 +9,7 @@ import (
 
 // IndexEntry holds a decrypted secret and the UUID filename that contains it.
 type IndexEntry struct {
-	UUID     string               // UUID only, no .age suffix
+	UUID     string // UUID only, no .age suffix
 	Envelope vault.SecretEnvelope
 }
 

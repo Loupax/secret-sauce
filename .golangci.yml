@@ -1,0 +1,15 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # These are intentional best-effort cleanup calls where ignoring
+      # the error is the correct behaviour (defer cleanup, network writes).
+      exclude-functions:
+        - os.Remove
+        - (net.Listener).Close
+        - (net.Conn).Close
+        - (os.File).Close
+        - (*encoding/json.Encoder).Encode
+        - fmt.Fprintln
+        - fmt.Fprintf
