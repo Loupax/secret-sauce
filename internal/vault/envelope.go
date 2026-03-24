@@ -12,8 +12,14 @@ import (
 type SecretType string
 
 const (
-	SecretTypeEnvVar SecretType = "env_var"
+	SecretTypeEnvironment SecretType = "environment"
+	SecretTypeFile        SecretType = "file"
 )
+
+// ValidSecretType returns true only when t is one of the known SecretType constants.
+func ValidSecretType(t SecretType) bool {
+	return t == SecretTypeEnvironment || t == SecretTypeFile
+}
 
 // SecretEnvelope is the plaintext JSON payload encrypted inside every .age file.
 type SecretEnvelope struct {

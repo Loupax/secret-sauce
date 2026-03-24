@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/loupax/secret-sauce/internal/vault"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +34,11 @@ var runCmd = &cobra.Command{
 		}
 
 		combined := os.Environ()
-		for k, v := range secrets {
-			combined = append(combined, k+"="+v)
+		for k, info := range secrets {
+			if info.Type != vault.SecretTypeEnvironment {
+				continue
+			}
+			combined = append(combined, k+"="+info.Value)
 		}
 
 		c := exec.Command(args[0], args[1:]...)

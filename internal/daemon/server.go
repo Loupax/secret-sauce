@@ -168,16 +168,40 @@ func (s *Server) handleConn(conn net.Conn) {
 			resp = ipc.Response{OK: false, Error: err.Error()}
 		} else {
 			s.index.mu.RLock()
-			secrets := make(map[string]string, len(s.index.entries))
+			secrets := make(map[string]ipc.SecretMeta, len(s.index.entries))
 			for name, entry := range s.index.entries {
-				secrets[name] = entry.Envelope.Value
+				secrets[name] = ipc.SecretMeta{
+					Type:  string(entry.Envelope.Type),
+					Value: entry.Envelope.Value,
+				}
 			}
 			s.index.mu.RUnlock()
 			resp = ipc.Response{OK: true, Secrets: secrets}
 		}
 
+	case ipc.OpReadOne:
+		if err := s.refreshIndexIfStale(req.VaultDir); err != nil {
+			resp = ipc.Response{OK: false, Error: err.Error()}
+		} else {
+			s.index.mu.RLock()
+			entry, found := s.index.entries[req.Key]
+			s.index.mu.RUnlock()
+			if !found {
+				resp = ipc.Response{OK: false, Error: vault.ErrKeyNotFound.Error()}
+			} else {
+				meta := ipc.SecretMeta{
+					Type:  string(entry.Envelope.Type),
+					Value: entry.Envelope.Value,
+				}
+				resp = ipc.Response{OK: true, Secret: &meta}
+			}
+		}
+
 	case ipc.OpWrite:
-		if err := s.svc.WriteSecret(req.VaultDir, req.Key, req.Value); err != nil {
+		secretType := vault.SecretType(req.Type)
+		if !vault.ValidSecretType(secretType) {
+			resp = ipc.Response{OK: false, Error: "invalid secret type"}
+		} else if err := s.svc.WriteSecret(req.VaultDir, req.Key, req.Value, secretType); err != nil {
 			resp = ipc.Response{OK: false, Error: err.Error()}
 		} else {
 			// Invalidate index so next read rebuilds from disk.

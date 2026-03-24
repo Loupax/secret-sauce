@@ -14,6 +14,12 @@ import (
 
 var ErrKeyNotFound = errors.New("key not found")
 
+// SecretInfo is the decrypted representation returned to callers of ReadSecret / ReadAllSecrets.
+type SecretInfo struct {
+	Type  SecretType
+	Value string
+}
+
 func validateKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("key cannot be empty")
@@ -97,7 +103,7 @@ func encryptToFile(destPath string, envelope SecretEnvelope, recipients []age.Re
 // If a file with the same envelope.Name already exists (found by decrypting
 // with identity), it is overwritten in-place (same UUID filename). Otherwise a
 // new UUID is generated.
-func WriteSecret(vaultDir, key, value string, recipients []age.Recipient, identity age.Identity) error {
+func WriteSecret(vaultDir, key, value string, secretType SecretType, recipients []age.Recipient, identity age.Identity) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
@@ -131,7 +137,7 @@ func WriteSecret(vaultDir, key, value string, recipients []age.Recipient, identi
 	}
 
 	envelope := SecretEnvelope{
-		Type:  SecretTypeEnvVar,
+		Type:  secretType,
 		Name:  key,
 		Value: value,
 		Tags:  []string{},
@@ -140,14 +146,14 @@ func WriteSecret(vaultDir, key, value string, recipients []age.Recipient, identi
 	return encryptToFile(destPath, envelope, recipients)
 }
 
-func ReadSecret(vaultDir, key string, identity age.Identity) (string, error) {
+func ReadSecret(vaultDir, key string, identity age.Identity) (SecretInfo, error) {
 	if err := validateKey(key); err != nil {
-		return "", err
+		return SecretInfo{}, err
 	}
 
 	files, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 	if err != nil {
-		return "", fmt.Errorf("glob secrets: %w", err)
+		return SecretInfo{}, fmt.Errorf("glob secrets: %w", err)
 	}
 
 	for _, f := range files {
@@ -156,19 +162,19 @@ func ReadSecret(vaultDir, key string, identity age.Identity) (string, error) {
 			continue // skip corrupt/unreadable files
 		}
 		if env.Name == key {
-			return env.Value, nil
+			return SecretInfo{Type: env.Type, Value: env.Value}, nil
 		}
 	}
-	return "", ErrKeyNotFound
+	return SecretInfo{}, ErrKeyNotFound
 }
 
-func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, error) {
+func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]SecretInfo, error) {
 	matches, err := filepath.Glob(filepath.Join(vaultDir, "*.age"))
 	if err != nil {
 		return nil, fmt.Errorf("glob secrets: %w", err)
 	}
 
-	result := make(map[string]string, len(matches))
+	result := make(map[string]SecretInfo, len(matches))
 	var mu sync.Mutex
 	var g errgroup.Group
 
@@ -180,7 +186,7 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]string, 
 				return fmt.Errorf("decrypt %s: %w", filepath.Base(match), err)
 			}
 			mu.Lock()
-			result[env.Name] = env.Value
+			result[env.Name] = SecretInfo{Type: env.Type, Value: env.Value}
 			mu.Unlock()
 			return nil
 		})

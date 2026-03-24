@@ -8,6 +8,51 @@ All notable changes to this project will be documented here.
 
 ---
 
+## [Unreleased — secret-types]
+
+### Breaking Changes
+
+- **`set` now requires a type argument** — the command signature has changed from
+  `set <key> <value>` to `set <type> <key> <value>`. The type must be one of
+  `environment` or `file`. Any existing scripts calling `set` must be updated.
+
+- **`ls` output format changed** — output is now tab-separated `<type>\t<key>` per line
+  instead of just `<key>`. Scripts that parse `ls` output must be updated.
+
+### Added
+
+- **Secret types** — secrets now carry an explicit type field stored in the encrypted
+  envelope:
+  - `environment` — injected as environment variables by `run`.
+  - `file` — stored encrypted but not injected into the subprocess environment.
+
+- **`edit <type> <key>` command** — opens the current value of a secret in `$EDITOR`
+  (falls back to `vi`, then `nano`). On clean editor exit the updated content is
+  re-encrypted and persisted. A non-zero editor exit code leaves the vault unchanged.
+  The decrypted value is written to a `0600` temp file and cleaned up with `defer`.
+
+- **Shell autocompletion** via Cobra's `ValidArgsFunction` for `set`, `edit`, and `rm`:
+  - `set` — first argument completes to `environment`/`file`; second argument completes
+    to existing keys.
+  - `edit` — same argument positions as `set`.
+  - `rm` — first argument completes to existing keys.
+
+### Changed
+
+- **`run` filters to `environment` secrets only** — secrets with type `file` are no
+  longer injected as environment variables. Only `environment`-typed secrets are merged
+  into the subprocess environment.
+
+- **`VaultService` interface extended** — `WriteSecret` now accepts a `vault.SecretType`
+  parameter; `ReadAllSecrets` and the new `ReadSecret` return `vault.SecretInfo` (carrying
+  both `Type` and `Value`) instead of bare strings.
+
+- **IPC wire protocol updated** — `OpReadAll` responses now carry `map[string]SecretMeta`
+  (with `type` and `value` fields) instead of `map[string]string`. A new `OpReadOne` op
+  supports single-key reads.
+
+---
+
 ## [Unreleased]
 
 ### Added
