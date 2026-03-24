@@ -107,3 +107,14 @@ func (s *IPCVaultService) DeleteSecret(vaultDir, key string) error {
 	}
 	return nil
 }
+
+func (s *IPCVaultService) GetPublicKey(vaultDir string) (string, error) {
+	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpGetPubKey, VaultDir: vaultDir})
+	if err != nil {
+		return "", err
+	}
+	if !resp.OK {
+		return "", fmt.Errorf("daemon error: %s", resp.Error)
+	}
+	return resp.PubKey, nil
+}

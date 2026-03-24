@@ -8,6 +8,16 @@ All notable changes to this project will be documented here.
 
 ---
 
+## [Unreleased — pubkey-derivation]
+
+### Added
+
+- **`share pubkey` command** — derives and prints the user's `age` public key on demand,
+  so it can be shared with teammates for use with `share add`. Uses `resolveService()` to
+  route through the daemon when available, or the OS keyring directly when not.
+
+---
+
 ## [Unreleased — secret-types]
 
 ### Breaking Changes

@@ -235,6 +235,19 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 		}
 
+	case ipc.OpGetPubKey:
+		keyStr, err := keyring.Load(req.VaultDir)
+		if err != nil {
+			resp = ipc.Response{OK: false, Error: err.Error()}
+		} else {
+			parsedIdentity, err := age.ParseX25519Identity(keyStr)
+			if err != nil {
+				resp = ipc.Response{OK: false, Error: fmt.Errorf("parse identity: %w", err).Error()}
+			} else {
+				resp = ipc.Response{OK: true, PubKey: parsedIdentity.Recipient().String()}
+			}
+		}
+
 	case ipc.OpShutdown:
 		json.NewEncoder(conn).Encode(ipc.Response{OK: true})
 		s.Shutdown()

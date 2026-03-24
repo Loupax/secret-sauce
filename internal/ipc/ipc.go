@@ -6,12 +6,13 @@ import (
 )
 
 const (
-	OpReadAll  = "read_all"
-	OpWrite    = "write"
-	OpDelete   = "delete"
-	OpShutdown = "shutdown"
-	OpPing     = "ping"
-	OpReadOne  = "read_one"
+	OpReadAll   = "read_all"
+	OpWrite     = "write"
+	OpDelete    = "delete"
+	OpShutdown  = "shutdown"
+	OpPing      = "ping"
+	OpReadOne   = "read_one"
+	OpGetPubKey = "get_pub_key"
 )
 
 // SecretMeta carries type and value for a single secret over the wire.
@@ -32,6 +33,7 @@ type Response struct {
 	OK      bool                  `json:"ok"`
 	Secrets map[string]SecretMeta `json:"secrets,omitempty"`
 	Secret  *SecretMeta           `json:"secret,omitempty"`
+	PubKey  string                `json:"pub_key,omitempty"`
 	Error   string                `json:"error,omitempty"`
 }
 
