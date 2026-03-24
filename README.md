@@ -103,7 +103,7 @@ Secrets have an explicit type that controls how they are consumed:
 | Type | Description |
 |---|---|
 | `environment` | Injected as an environment variable when running `secret-sauce run` |
-| `file` | Stored encrypted but not injected as an environment variable; intended for file-based secrets (certificates, SSH keys, etc.) |
+| `file` | Materialized as a memory-backed ghost file and injected as `KEY=/dev/fd/N`; the file has no filesystem path and is invisible to other processes |
 
 ### Add / update a secret
 
@@ -113,7 +113,7 @@ secret-sauce set environment API_KEY "sk-..."
 secret-sauce set file TLS_CERT "$(cat server.crt)"
 ```
 
-The first argument is the type (`environment` or `file`). Only `environment` secrets are injected when running commands.
+The first argument is the type (`environment` or `file`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
 
 ### Edit a secret in your editor
 
@@ -158,13 +158,40 @@ secret-sauce run -- python manage.py runserver
 secret-sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
-Decrypts all `environment`-typed secrets concurrently into memory, merges them into the
-current environment, then executes the given command with the combined environment.
-Secrets with type `file` are not injected as environment variables. Standard I/O is
-proxied transparently and the child's exit code is preserved.
+Decrypts all secrets concurrently into memory, then executes the given command with the
+combined environment. Standard I/O is proxied transparently and the child's exit code is
+preserved. Uses the daemon if available (see below), otherwise falls back to querying the
+keyring directly.
 
-Uses the daemon if available (see below), otherwise falls back to querying the keyring
-directly.
+**`environment` secrets** are merged into the child's environment as plain `KEY=VALUE`
+pairs, identical to regular environment variables.
+
+**`file` secrets** are injected using the Ghost File pattern:
+
+1. A temporary file is created on disk and immediately **unlinked** — the directory entry
+   is removed, making the file invisible to `ls`, `find`, and any other process. The
+   file's inode remains alive in RAM only because `secret-sauce` holds an open file
+   descriptor to it.
+2. The secret's value is written into the in-memory file descriptor.
+3. The child process receives `KEY=/dev/fd/N` in its environment, where `N` is the file
+   descriptor number (3 or higher, since 0–2 are stdin/stdout/stderr).
+4. The child reads the secret by opening the path in `$KEY` like any ordinary file:
+
+   ```bash
+   # shell
+   openssl verify -CAfile "$TLS_CA" cert.pem
+
+   # python
+   with open(os.environ["TLS_CERT"]) as f:
+       cert_pem = f.read()
+   ```
+
+5. When `secret-sauce` exits (normally or on error), the kernel drops all file
+   descriptors and instantly reclaims the inode. The secret never touches disk in a
+   linked, discoverable form.
+
+> **Linux only.** The `/dev/fd/N` interface is Linux-specific. This feature will not
+> work on macOS or Windows.
 
 ### Manage the daemon
 

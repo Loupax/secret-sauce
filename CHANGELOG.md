@@ -37,11 +37,27 @@ All notable changes to this project will be documented here.
   - `edit` — same argument positions as `set`.
   - `rm` — first argument completes to existing keys.
 
+### Added (continued)
+
+- **Ghost File injection for `file` secrets** — `run` now materializes `file`-typed
+  secrets as unlinked, memory-backed file descriptors and injects them into the child
+  process as `KEY=/dev/fd/N` environment variables. The lifecycle is:
+  1. `os.CreateTemp` creates a file; `os.Remove` immediately unlinks it from the
+     filesystem, making it invisible to all other processes while keeping the inode alive
+     in RAM via the open file descriptor held by `secret-sauce`.
+  2. The secret value is written into the in-memory fd; the cursor is seeked back to 0.
+  3. The fd is passed to the child via `exec.Cmd.ExtraFiles`; Go maps `ExtraFiles[i]` to
+     child fd `3+i`, so the formula `fdIndex = 3 + len(ExtraFiles) - 1` gives the correct
+     descriptor number after each append.
+  4. A `defer` loop closes all extra file descriptors on parent exit, causing the kernel
+     to immediately reclaim the unlinked inode. The secret never exists as a linked,
+     discoverable file on disk.
+
 ### Changed
 
-- **`run` filters to `environment` secrets only** — secrets with type `file` are no
-  longer injected as environment variables. Only `environment`-typed secrets are merged
-  into the subprocess environment.
+- **`run` handles both secret types** — `environment` secrets continue to be merged as
+  plain `KEY=VALUE` pairs; `file` secrets are now injected via the Ghost File pattern
+  (see above) rather than being silently dropped.
 
 - **`VaultService` interface extended** — `WriteSecret` now accepts a `vault.SecretType`
   parameter; `ReadAllSecrets` and the new `ReadSecret` return `vault.SecretInfo` (carrying
