@@ -16,19 +16,7 @@ var setCmd = &cobra.Command{
 		case 0:
 			return []string{"environment", "file"}, cobra.ShellCompDirectiveNoFileComp
 		case 1:
-			svc, err := resolveService()
-			if err != nil {
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-			secrets, err := svc.ReadAllSecrets(vaultDir)
-			if err != nil {
-				return nil, cobra.ShellCompDirectiveNoFileComp
-			}
-			keys := make([]string, 0, len(secrets))
-			for k := range secrets {
-				keys = append(keys, k)
-			}
-			return keys, cobra.ShellCompDirectiveNoFileComp
+			return completeSecretKeys(cmd, args, toComplete)
 		default:
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}

@@ -14,19 +14,7 @@ var rmCmd = &cobra.Command{
 		if len(args) != 0 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		svc, err := resolveService()
-		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-		secrets, err := svc.ReadAllSecrets(vaultDir)
-		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-		keys := make([]string, 0, len(secrets))
-		for k := range secrets {
-			keys = append(keys, k)
-		}
-		return keys, cobra.ShellCompDirectiveNoFileComp
+		return completeSecretKeys(cmd, args, toComplete)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		svc, err := resolveService()
