@@ -1,5 +1,7 @@
 # secret-sauce
-<img width="300" height="300" alt="logo" src="./assets/logo.png" />
+<img width="200" alt="logo" src="./assets/logo.png" />
+
+_The secret is in the sauce_
 
 > **STATUS: PRE-ALPHA — NOT READY FOR USE**
 > This project is under active development. The CLI surface, storage format, and key
