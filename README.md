@@ -72,8 +72,8 @@ socket on shutdown.
 
 ```bash
 git clone https://github.com/loupax/secret-sauce
-cd secret-sauce/sauce
-go install .
+cd secret-sauce
+go install ./...
 ```
 
 This installs the `sauce` binary to `$(go env GOPATH)/bin`.
