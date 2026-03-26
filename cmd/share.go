@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
-	kr "github.com/loupax/sauce/internal/keyring"
-	vlt "github.com/loupax/sauce/internal/vault"
+	kr "github.com/loupax/secret-sauce/internal/keyring"
+	vlt "github.com/loupax/secret-sauce/internal/vault"
 )
 
 var shareCmd = &cobra.Command{

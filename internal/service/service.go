@@ -1,6 +1,6 @@
 package service
 
-import "github.com/loupax/sauce/internal/vault"
+import "github.com/loupax/secret-sauce/internal/vault"
 
 // VaultService is the Strategy interface. Both the IPC client and local
 // execution path implement this. Commands (run, set, rm) accept a VaultService.

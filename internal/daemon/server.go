@@ -15,10 +15,10 @@ import (
 	"filippo.io/age"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/loupax/sauce/internal/ipc"
-	"github.com/loupax/sauce/internal/keyring"
-	"github.com/loupax/sauce/internal/service"
-	"github.com/loupax/sauce/internal/vault"
+	"github.com/loupax/secret-sauce/internal/ipc"
+	"github.com/loupax/secret-sauce/internal/keyring"
+	"github.com/loupax/secret-sauce/internal/service"
+	"github.com/loupax/secret-sauce/internal/vault"
 )
 
 // Server holds daemon state.

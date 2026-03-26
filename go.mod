@@ -1,4 +1,4 @@
-module github.com/loupax/sauce
+module github.com/loupax/secret-sauce
 
 go 1.25.0
 

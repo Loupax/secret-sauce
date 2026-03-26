@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/loupax/sauce/internal/config"
-	"github.com/loupax/sauce/internal/daemon"
-	"github.com/loupax/sauce/internal/ipc"
+	"github.com/loupax/secret-sauce/internal/config"
+	"github.com/loupax/secret-sauce/internal/daemon"
+	"github.com/loupax/secret-sauce/internal/ipc"
 )
 
 var daemonCmd = &cobra.Command{

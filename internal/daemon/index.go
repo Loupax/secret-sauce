@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loupax/sauce/internal/vault"
+	"github.com/loupax/secret-sauce/internal/vault"
 )
 
 // IndexEntry holds a decrypted secret and the UUID filename that contains it.

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"filippo.io/age"
-	"github.com/loupax/sauce/internal/keyring"
-	"github.com/loupax/sauce/internal/vault"
+	"github.com/loupax/secret-sauce/internal/keyring"
+	"github.com/loupax/secret-sauce/internal/vault"
 )
 
 type LocalVaultService struct{}

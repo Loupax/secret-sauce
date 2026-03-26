@@ -8,8 +8,8 @@ import (
 	"filippo.io/age"
 	"github.com/spf13/cobra"
 
-	kr "github.com/loupax/sauce/internal/keyring"
-	vlt "github.com/loupax/sauce/internal/vault"
+	kr "github.com/loupax/secret-sauce/internal/keyring"
+	vlt "github.com/loupax/secret-sauce/internal/vault"
 )
 
 var initCmd = &cobra.Command{

@@ -71,11 +71,19 @@ socket on shutdown.
 ## Installation
 
 ```bash
-git clone https://github.com/loupax/sauce
+git clone https://github.com/loupax/secret-sauce
 cd secret-sauce
+./install.sh
+```
+
+This builds the binary as `sauce` and installs it to `$(go env GOPATH)/bin`.
+Make sure that directory is on your `$PATH` (it usually is if you have Go installed).
+
+To install to a custom location instead:
+
+```bash
 go build -o sauce .
-# move the binary somewhere on your PATH
-mv sauce ~/.local/bin/
+mv sauce /usr/local/bin/   # or wherever you prefer
 ```
 
 ---
