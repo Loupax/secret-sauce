@@ -1,5 +1,5 @@
 # secret-sauce
-<img width="300" height="300" alt="logo" src="https://github.com/user-attachments/assets/df19c319-355e-4665-b51d-9b5daeec2523" />
+<img width="300" height="300" alt="logo" src="./assets/secret-sauce-logo.png" />
 
 > **STATUS: PRE-ALPHA — NOT READY FOR USE**
 > This project is under active development. The CLI surface, storage format, and key
