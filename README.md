@@ -3,9 +3,6 @@
 
 _The secret is in the sauce_
 
-> management behaviour may change without notice between commits. Do not use this to
-> store secrets you cannot afford to lose or rotate.
-
 A local-first, multi-user CLI secret manager for Linux. Secrets are stored on disk as
 individual [`age`](https://age-encryption.org/)-encrypted files and injected as environment
 variables into a child process. Sharing is handled by re-encrypting each secret to
