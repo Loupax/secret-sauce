@@ -2,9 +2,32 @@
 
 All notable changes to this project will be documented here.
 
-> **This project has not yet reached a stable release.**
-> There is no versioned release. All entries below describe development progress on
-> the `main` branch. Breaking changes may occur at any time without a major version bump.
+---
+
+## v1.0.0 — The Sauce Release
+
+### Highlights
+
+- **Command renamed: `secret-sauce` → `sauce`** — The binary is now invoked as `sauce`.
+  This is the defining milestone of the v1 release. All shell examples, help text, and
+  documentation have been updated accordingly.
+
+- **New environment variable: `SAUCE_DIR`** — The primary vault directory override is now
+  `SAUCE_DIR`. The legacy `SECRET_SAUCE_DIR` variable remains fully supported as a
+  transparent fallback. No changes to existing shell configs or CI pipelines are required.
+
+- **IPC socket renamed** — The daemon socket is now `sauce.sock`
+  (`$XDG_RUNTIME_DIR/sauce.sock`, falling back to `/tmp/sauce-<uid>.sock`).
+  Any daemon started by a previous version of the binary must be stopped and restarted
+  after upgrading.
+
+- **Vault and config paths are unchanged** — `~/.local/share/secret-sauce` and
+  `~/.config/secret-sauce` are preserved as-is. No file migration is required.
+
+---
+
+> **Previous development history**
+> The entries below describe pre-v1 development progress on the `main` branch.
 
 ---
 

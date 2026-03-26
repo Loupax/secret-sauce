@@ -21,7 +21,7 @@ var runCmd = &cobra.Command{
 			args = args[1:]
 		}
 		if len(args) == 0 {
-			return fmt.Errorf("usage: secret-sauce run [--] <command> [args...]")
+			return fmt.Errorf("usage: sauce run [--] <command> [args...]")
 		}
 
 		svc, err := resolveService()

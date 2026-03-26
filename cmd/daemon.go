@@ -16,7 +16,7 @@ import (
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Manage the secret-sauce background daemon",
+	Short: "Manage the Sauce background daemon",
 }
 
 var daemonStartCmd = &cobra.Command{
