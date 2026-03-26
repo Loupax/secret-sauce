@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/loupax/secret-sauce/cmd"
+	"github.com/loupax/sauce/cmd"
 )
 
 func main() {

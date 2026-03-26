@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/loupax/secret-sauce/internal/config"
-	"github.com/loupax/secret-sauce/internal/ipc"
-	"github.com/loupax/secret-sauce/internal/service"
+	"github.com/loupax/sauce/internal/config"
+	"github.com/loupax/sauce/internal/ipc"
+	"github.com/loupax/sauce/internal/service"
 )
 
 // resolveService implements the Hybrid Execution Decision Tree:

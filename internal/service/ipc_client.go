@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/loupax/secret-sauce/internal/ipc"
-	"github.com/loupax/secret-sauce/internal/vault"
+	"github.com/loupax/sauce/internal/ipc"
+	"github.com/loupax/sauce/internal/vault"
 )
 
 // IPCVaultService satisfies VaultService by sending JSON requests over the Unix socket.

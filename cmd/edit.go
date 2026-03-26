@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/loupax/secret-sauce/internal/vault"
+	"github.com/loupax/sauce/internal/vault"
 	"github.com/spf13/cobra"
 )
 

@@ -71,7 +71,7 @@ socket on shutdown.
 ## Installation
 
 ```bash
-git clone https://github.com/loupax/secret-sauce
+git clone https://github.com/loupax/sauce
 cd secret-sauce
 go build -o sauce .
 # move the binary somewhere on your PATH
