@@ -3,8 +3,6 @@
 
 _The secret is in the sauce_
 
-> **STATUS: PRE-ALPHA — NOT READY FOR USE**
-> This project is under active development. The CLI surface, storage format, and key
 > management behaviour may change without notice between commits. Do not use this to
 > store secrets you cannot afford to lose or rotate.
 
