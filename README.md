@@ -299,8 +299,9 @@ Set `auto_spawn: false` to always query the keyring directly without a daemon.
 
 ```
 secret-sauce/
-├── main.go
 ├── cmd/                      # cobra command definitions
+│   ├── sauce/                # binary entry point (go install ./... → sauce)
+│   │   └── main.go
 │   ├── root.go               # vault directory resolution, persistent flags
 │   ├── init.go
 │   ├── set.go
