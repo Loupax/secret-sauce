@@ -1,7 +1,8 @@
 # secret-sauce
+<img width="200" alt="logo" src="./assets/logo.png" />
 
-> **STATUS: PRE-ALPHA — NOT READY FOR USE**
-> This project is under active development. The CLI surface, storage format, and key
+_The secret is in the sauce_
+
 > management behaviour may change without notice between commits. Do not use this to
 > store secrets you cannot afford to lose or rotate.
 
@@ -72,10 +73,11 @@ socket on shutdown.
 ```bash
 git clone https://github.com/loupax/secret-sauce
 cd secret-sauce
-go build -o secret-sauce .
-# move the binary somewhere on your PATH
-mv secret-sauce ~/.local/bin/
+go install ./...
 ```
+
+This installs the `sauce` binary to `$(go env GOPATH)/bin`.
+Make sure that directory is on your `$PATH` (it usually is if you have Go installed).
 
 ---
 
@@ -84,7 +86,7 @@ mv secret-sauce ~/.local/bin/
 ### Initialise a vault
 
 ```bash
-secret-sauce init
+sauce init
 ```
 
 Generates a fresh X25519 keypair. The private key is stored in the OS keyring. The
@@ -102,15 +104,15 @@ Secrets have an explicit type that controls how they are consumed:
 
 | Type | Description |
 |---|---|
-| `environment` | Injected as an environment variable when running `secret-sauce run` |
+| `environment` | Injected as an environment variable when running `sauce run` |
 | `file` | Materialized as a memory-backed ghost file and injected as `KEY=/dev/fd/N`; the file has no filesystem path and is invisible to other processes |
 
 ### Add / update a secret
 
 ```bash
-secret-sauce set environment DATABASE_URL "postgres://user:pass@localhost/mydb"
-secret-sauce set environment API_KEY "sk-..."
-secret-sauce set file TLS_CERT "$(cat server.crt)"
+sauce set environment DATABASE_URL "postgres://user:pass@localhost/mydb"
+sauce set environment API_KEY "sk-..."
+sauce set file TLS_CERT "$(cat server.crt)"
 ```
 
 The first argument is the type (`environment` or `file`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
@@ -118,8 +120,8 @@ The first argument is the type (`environment` or `file`). `environment` secrets 
 ### Edit a secret in your editor
 
 ```bash
-secret-sauce edit environment DATABASE_URL
-secret-sauce edit file TLS_CERT
+sauce edit environment DATABASE_URL
+sauce edit file TLS_CERT
 ```
 
 Opens the current value in `$EDITOR` (falls back to `vi`, then `nano`). When the editor
@@ -129,7 +131,7 @@ a non-zero code, the vault is left unchanged.
 ### Remove a secret
 
 ```bash
-secret-sauce rm API_KEY
+sauce rm API_KEY
 ```
 
 Returns an error if the key does not exist.
@@ -137,7 +139,7 @@ Returns an error if the key does not exist.
 ### List secret keys
 
 ```bash
-secret-sauce ls
+sauce ls
 ```
 
 Prints tab-separated `<type>\t<key>` lines, sorted alphabetically by key. Values are
@@ -153,9 +155,9 @@ file	TLS_CERT
 ### Run a command with secrets injected
 
 ```bash
-secret-sauce run -- env | grep DATABASE_URL
-secret-sauce run -- python manage.py runserver
-secret-sauce run -- bash -c 'echo $DATABASE_URL'
+sauce run -- env | grep DATABASE_URL
+sauce run -- python manage.py runserver
+sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
 Decrypts all secrets concurrently into memory, then executes the given command with the
@@ -170,7 +172,7 @@ pairs, identical to regular environment variables.
 
 1. A temporary file is created on disk and immediately **unlinked** — the directory entry
    is removed, making the file invisible to `ls`, `find`, and any other process. The
-   file's inode remains alive in RAM only because `secret-sauce` holds an open file
+   file's inode remains alive in RAM only because `sauce` holds an open file
    descriptor to it.
 2. The secret's value is written into the in-memory file descriptor.
 3. The child process receives `KEY=/dev/fd/N` in its environment, where `N` is the file
@@ -186,7 +188,7 @@ pairs, identical to regular environment variables.
        cert_pem = f.read()
    ```
 
-5. When `secret-sauce` exits (normally or on error), the kernel drops all file
+5. When `sauce` exits (normally or on error), the kernel drops all file
    descriptors and instantly reclaims the inode. The secret never touches disk in a
    linked, discoverable form.
 
@@ -197,18 +199,18 @@ pairs, identical to regular environment variables.
 
 ```bash
 # Start the background daemon (detaches from the current session)
-secret-sauce daemon start
+sauce daemon start
 
 # Check whether the daemon is running
-secret-sauce daemon status
+sauce daemon status
 
 # Shut the daemon down gracefully
-secret-sauce daemon stop
+sauce daemon stop
 ```
 
 The daemon caches the private key in memory after its first keyring access. Subsequent
 `run` calls use IPC over a Unix socket
-(`$XDG_RUNTIME_DIR/secret-sauce.sock`) and never trigger a D-Bus prompt.
+(`$XDG_RUNTIME_DIR/sauce.sock`) and never trigger a D-Bus prompt.
 
 The daemon shuts itself down after the idle timeout (default `15m`) with no activity,
 zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the next
@@ -218,18 +220,18 @@ zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the
 
 ```bash
 # Print your own public key (share this with teammates so they can run 'share add')
-secret-sauce share pubkey
+sauce share pubkey
 
 # Add a teammate by their public key
-secret-sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 
 # List all authorised public keys
-secret-sauce share ls
+sauce share ls
 ```
 
 After `share add`, every secret file is re-encrypted to all recipients listed in
 `.vault_recipients`. The new recipient can now decrypt secrets using their own private key
-(which they initialised with `secret-sauce init` in the same vault directory, typically
+(which they initialised with `sauce init` in the same vault directory, typically
 shared via rsync, a git repo, or a network filesystem).
 
 ---
@@ -239,14 +241,17 @@ shared via rsync, a git repo, or a network filesystem).
 The vault directory is resolved in this order:
 
 1. `--vault-dir <path>` flag
-2. `$SECRET_SAUCE_DIR` environment variable
-3. `$XDG_DATA_HOME/secret-sauce/` (default: `~/.local/share/secret-sauce/`)
+2. `$SAUCE_DIR` environment variable
+3. `$SECRET_SAUCE_DIR` environment variable *(legacy fallback — still supported)*
+4. `$XDG_DATA_HOME/secret-sauce/` (default: `~/.local/share/secret-sauce/`)
+
+> **Upgrading from an earlier version?** Vault and config paths are unchanged — no file migration needed.
 
 For shared-team use, point all team members at the same directory (e.g. a shared NFS
 mount or a directory synced with rsync or git):
 
 ```bash
-export SECRET_SAUCE_DIR=/mnt/team-share/secrets
+export SAUCE_DIR=/mnt/team-share/secrets
 ```
 
 Because each secret is a separate file, syncing tools like `rsync` or `git` can merge
@@ -294,8 +299,9 @@ Set `auto_spawn: false` to always query the keyring directly without a daemon.
 
 ```
 secret-sauce/
-├── main.go
 ├── cmd/                      # cobra command definitions
+│   ├── sauce/                # binary entry point (go install ./... → sauce)
+│   │   └── main.go
 │   ├── root.go               # vault directory resolution, persistent flags
 │   ├── init.go
 │   ├── set.go

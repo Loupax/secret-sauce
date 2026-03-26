@@ -37,11 +37,11 @@ type Response struct {
 	Error   string                `json:"error,omitempty"`
 }
 
-// SocketPath returns $XDG_RUNTIME_DIR/secret-sauce.sock.
-// Falls back to /tmp/secret-sauce-<uid>.sock if XDG_RUNTIME_DIR is unset.
+// SocketPath returns $XDG_RUNTIME_DIR/sauce.sock.
+// Falls back to /tmp/sauce-<uid>.sock if XDG_RUNTIME_DIR is unset.
 func SocketPath() string {
 	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return dir + "/secret-sauce.sock"
+		return dir + "/sauce.sock"
 	}
-	return fmt.Sprintf("/tmp/secret-sauce-%d.sock", os.Getuid())
+	return fmt.Sprintf("/tmp/sauce-%d.sock", os.Getuid())
 }
