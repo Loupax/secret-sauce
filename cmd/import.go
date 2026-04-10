@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"archive/zip"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -356,7 +355,7 @@ var importOnePWCmd = &cobra.Command{
 						}
 						rc.Close()
 
-						value := base64.StdEncoding.EncodeToString(rawBuf)
+						value := string(rawBuf)
 
 						// Key: normalizeKey(fileName), fallback normalizeKey(title)
 						key := normalizeKey(fileName)

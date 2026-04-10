@@ -290,16 +290,9 @@ secrets into the current vault.
 |---|---|---|
 | `login` | `map` | Usernames, passwords, and custom section fields stored as a flat JSON map |
 | `password` | `environment` | Password field value used; falls back to first non-empty login field |
-| `document` | `file` | Raw file bytes stored base64-encoded |
+| `document` | `file` | Raw file bytes stored as-is |
 | `database`, `server` | `map` | Section fields stored as a flat JSON map |
 | anything else | `environment` | First non-empty field value used |
-
-Document secrets are stored as base64-encoded strings. To recover the original
-bytes, pipe through `base64 --decode`:
-
-```bash
-sauce get MY_CERT | base64 --decode > server.crt
-```
 
 **Flags:**
 
