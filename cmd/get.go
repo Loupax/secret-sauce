@@ -11,7 +11,7 @@ import (
 
 var getCmd = &cobra.Command{
 	Use:   "get <secret> [key]",
-	Short: "Get a map secret value",
+	Short: "Get a secret value",
 	Args:  cobra.RangeArgs(1, 2),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) == 0 {
@@ -30,13 +30,13 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("read secret: %w", err)
 		}
 
-		if info.Type != vault.SecretTypeMap {
-			return fmt.Errorf("secret %q is not of type 'map'", args[0])
+		if len(args) == 1 {
+			fmt.Fprintln(os.Stdout, info.Value)
+			return nil
 		}
 
-		if len(args) == 1 {
-			fmt.Fprint(os.Stdout, info.Value)
-			return nil
+		if info.Type != vault.SecretTypeMap {
+			return fmt.Errorf("secret %q is not of type 'map'; cannot access key %q", args[0], args[1])
 		}
 
 		var m map[string]string

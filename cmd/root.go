@@ -10,7 +10,7 @@ import (
 var vaultDir string
 
 var rootCmd = &cobra.Command{
-	Use:   "secret-sauce",
+	Use:   "sauce",
 	Short: "A local encrypted secret vault",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if vaultDir != "" {

@@ -14,7 +14,7 @@ multiple `age` X25519 recipients — no server, no cloud, no central authority.
 
 ## How it works
 
-`secret-sauce` maintains a vault directory (default `~/.local/share/secret-sauce/`):
+`sauce` maintains a vault directory (default `~/.local/share/secret-sauce/`):
 
 | Path | Contents |
 |---|---|
@@ -70,11 +70,17 @@ socket on shutdown.
 ## Installation
 
 ```bash
+go install github.com/loupax/secret-sauce/cmd/sauce@latest
+```
+
+Or build from source:
+
+```bash
 git clone https://github.com/loupax/secret-sauce
 cd secret-sauce
-go build -o secret-sauce .
+go build -o sauce ./cmd/sauce
 # move the binary somewhere on your PATH
-mv secret-sauce ~/.local/bin/
+mv sauce ~/.local/bin/
 ```
 
 ---
@@ -84,7 +90,7 @@ mv secret-sauce ~/.local/bin/
 ### Initialise a vault
 
 ```bash
-secret-sauce init
+sauce init
 ```
 
 Generates a fresh X25519 keypair. The private key is stored in the OS keyring. The
@@ -102,15 +108,15 @@ Secrets have an explicit type that controls how they are consumed:
 
 | Type | Description |
 |---|---|
-| `environment` | Injected as an environment variable when running `secret-sauce run` |
+| `environment` | Injected as an environment variable when running `sauce run` |
 | `file` | Materialized as a memory-backed ghost file and injected as `KEY=/dev/fd/N`; the file has no filesystem path and is invisible to other processes |
 
 ### Add / update a secret
 
 ```bash
-secret-sauce set environment DATABASE_URL "postgres://user:pass@localhost/mydb"
-secret-sauce set environment API_KEY "sk-..."
-secret-sauce set file TLS_CERT "$(cat server.crt)"
+sauce set environment DATABASE_URL "postgres://user:pass@localhost/mydb"
+sauce set environment API_KEY "sk-..."
+sauce set file TLS_CERT "$(cat server.crt)"
 ```
 
 The first argument is the type (`environment` or `file`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
@@ -118,8 +124,8 @@ The first argument is the type (`environment` or `file`). `environment` secrets 
 ### Edit a secret in your editor
 
 ```bash
-secret-sauce edit environment DATABASE_URL
-secret-sauce edit file TLS_CERT
+sauce edit environment DATABASE_URL
+sauce edit file TLS_CERT
 ```
 
 Opens the current value in `$EDITOR` (falls back to `vi`, then `nano`). When the editor
@@ -129,7 +135,7 @@ a non-zero code, the vault is left unchanged.
 ### Remove a secret
 
 ```bash
-secret-sauce rm API_KEY
+sauce rm API_KEY
 ```
 
 Returns an error if the key does not exist.
@@ -137,7 +143,7 @@ Returns an error if the key does not exist.
 ### List secret keys
 
 ```bash
-secret-sauce ls
+sauce ls
 ```
 
 Prints tab-separated `<type>\t<key>` lines, sorted alphabetically by key. Values are
@@ -153,9 +159,9 @@ file	TLS_CERT
 ### Run a command with secrets injected
 
 ```bash
-secret-sauce run -- env | grep DATABASE_URL
-secret-sauce run -- python manage.py runserver
-secret-sauce run -- bash -c 'echo $DATABASE_URL'
+sauce run -- env | grep DATABASE_URL
+sauce run -- python manage.py runserver
+sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
 Decrypts all secrets concurrently into memory, then executes the given command with the
@@ -197,13 +203,13 @@ pairs, identical to regular environment variables.
 
 ```bash
 # Start the background daemon (detaches from the current session)
-secret-sauce daemon start
+sauce daemon start
 
 # Check whether the daemon is running
-secret-sauce daemon status
+sauce daemon status
 
 # Shut the daemon down gracefully
-secret-sauce daemon stop
+sauce daemon stop
 ```
 
 The daemon caches the private key in memory after its first keyring access. Subsequent
@@ -218,18 +224,18 @@ zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the
 
 ```bash
 # Print your own public key (share this with teammates so they can run 'share add')
-secret-sauce share pubkey
+sauce share pubkey
 
 # Add a teammate by their public key
-secret-sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+sauce share add age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 
 # List all authorised public keys
-secret-sauce share ls
+sauce share ls
 ```
 
 After `share add`, every secret file is re-encrypted to all recipients listed in
 `.vault_recipients`. The new recipient can now decrypt secrets using their own private key
-(which they initialised with `secret-sauce init` in the same vault directory, typically
+(which they initialised with `sauce init` in the same vault directory, typically
 shared via rsync, a git repo, or a network filesystem).
 
 ---
@@ -294,10 +300,12 @@ Set `auto_spawn: false` to always query the keyring directly without a daemon.
 
 ```
 secret-sauce/
-├── main.go
-├── cmd/                      # cobra command definitions
+├── cmd/
+│   ├── sauce/                # binary entry point (go install ./cmd/sauce → sauce)
+│   │   └── main.go
 │   ├── root.go               # vault directory resolution, persistent flags
 │   ├── init.go
+│   ├── get.go
 │   ├── set.go
 │   ├── edit.go
 │   ├── rm.go

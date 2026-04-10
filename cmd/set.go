@@ -17,7 +17,10 @@ var setCmd = &cobra.Command{
 	Use:   "set <type> <key> <value>",
 	Short: "Set a secret",
 	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 2 && vault.SecretType(args[0]) == vault.SecretTypeMap && interactive {
+		if len(args) > 0 && vault.SecretType(args[0]) == vault.SecretTypeMap && interactive {
+			if len(args) != 2 {
+				return fmt.Errorf("interactive map set accepts 2 arg(s), received %d", len(args))
+			}
 			return nil
 		}
 		if len(args) != 3 {
