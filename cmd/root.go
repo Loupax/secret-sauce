@@ -16,6 +16,10 @@ var rootCmd = &cobra.Command{
 		if vaultDir != "" {
 			return nil
 		}
+		if v := os.Getenv("SAUCE_DIR"); v != "" {
+			vaultDir = v
+			return nil
+		}
 		if v := os.Getenv("SECRET_SAUCE_DIR"); v != "" {
 			vaultDir = v
 			return nil

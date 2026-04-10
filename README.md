@@ -1,9 +1,7 @@
 # secret-sauce
+<img width="200" alt="logo" src="./assets/logo.png" />
 
-> **STATUS: PRE-ALPHA — NOT READY FOR USE**
-> This project is under active development. The CLI surface, storage format, and key
-> management behaviour may change without notice between commits. Do not use this to
-> store secrets you cannot afford to lose or rotate.
+_The secret is in the sauce_
 
 A local-first, multi-user CLI secret manager for Linux. Secrets are stored on disk as
 individual [`age`](https://age-encryption.org/)-encrypted files and injected as environment
@@ -82,6 +80,9 @@ go build -o sauce ./cmd/sauce
 # move the binary somewhere on your PATH
 mv sauce ~/.local/bin/
 ```
+
+This installs the `sauce` binary to `$(go env GOPATH)/bin`.
+Make sure that directory is on your `$PATH` (it usually is if you have Go installed).
 
 ---
 
@@ -176,7 +177,7 @@ pairs, identical to regular environment variables.
 
 1. A temporary file is created on disk and immediately **unlinked** — the directory entry
    is removed, making the file invisible to `ls`, `find`, and any other process. The
-   file's inode remains alive in RAM only because `secret-sauce` holds an open file
+   file's inode remains alive in RAM only because `sauce` holds an open file
    descriptor to it.
 2. The secret's value is written into the in-memory file descriptor.
 3. The child process receives `KEY=/dev/fd/N` in its environment, where `N` is the file
@@ -192,7 +193,7 @@ pairs, identical to regular environment variables.
        cert_pem = f.read()
    ```
 
-5. When `secret-sauce` exits (normally or on error), the kernel drops all file
+5. When `sauce` exits (normally or on error), the kernel drops all file
    descriptors and instantly reclaims the inode. The secret never touches disk in a
    linked, discoverable form.
 
@@ -214,7 +215,7 @@ sauce daemon stop
 
 The daemon caches the private key in memory after its first keyring access. Subsequent
 `run` calls use IPC over a Unix socket
-(`$XDG_RUNTIME_DIR/secret-sauce.sock`) and never trigger a D-Bus prompt.
+(`$XDG_RUNTIME_DIR/sauce.sock`) and never trigger a D-Bus prompt.
 
 The daemon shuts itself down after the idle timeout (default `15m`) with no activity,
 zeroes the socket, and exits cleanly. With `auto_spawn: true` (the default), the next
@@ -245,14 +246,17 @@ shared via rsync, a git repo, or a network filesystem).
 The vault directory is resolved in this order:
 
 1. `--vault-dir <path>` flag
-2. `$SECRET_SAUCE_DIR` environment variable
-3. `$XDG_DATA_HOME/secret-sauce/` (default: `~/.local/share/secret-sauce/`)
+2. `$SAUCE_DIR` environment variable
+3. `$SECRET_SAUCE_DIR` environment variable *(legacy fallback — still supported)*
+4. `$XDG_DATA_HOME/secret-sauce/` (default: `~/.local/share/secret-sauce/`)
+
+> **Upgrading from an earlier version?** Vault and config paths are unchanged — no file migration needed.
 
 For shared-team use, point all team members at the same directory (e.g. a shared NFS
 mount or a directory synced with rsync or git):
 
 ```bash
-export SECRET_SAUCE_DIR=/mnt/team-share/secrets
+export SAUCE_DIR=/mnt/team-share/secrets
 ```
 
 Because each secret is a separate file, syncing tools like `rsync` or `git` can merge
