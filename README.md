@@ -288,7 +288,8 @@ secrets into the current vault.
 
 | Item category | Secret type | Notes |
 |---|---|---|
-| `login`, `password` | `environment` | Password field value used; falls back to first non-empty login field |
+| `login` | `map` | Usernames, passwords, and custom section fields stored as a flat JSON map |
+| `password` | `environment` | Password field value used; falls back to first non-empty login field |
 | `document` | `file` | Raw file bytes stored base64-encoded |
 | `database`, `server` | `map` | Section fields stored as a flat JSON map |
 | anything else | `environment` | First non-empty field value used |
