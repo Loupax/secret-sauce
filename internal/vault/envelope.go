@@ -14,11 +14,12 @@ type SecretType string
 const (
 	SecretTypeEnvironment SecretType = "environment"
 	SecretTypeFile        SecretType = "file"
+	SecretTypeMap         SecretType = "map"
 )
 
 // ValidSecretType returns true only when t is one of the known SecretType constants.
 func ValidSecretType(t SecretType) bool {
-	return t == SecretTypeEnvironment || t == SecretTypeFile
+	return t == SecretTypeEnvironment || t == SecretTypeFile || t == SecretTypeMap
 }
 
 // SecretEnvelope is the plaintext JSON payload encrypted inside every .age file.

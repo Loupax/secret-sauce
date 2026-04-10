@@ -13,13 +13,17 @@ import (
 	"github.com/loupax/secret-sauce/internal/service"
 )
 
-// resolveService implements the Hybrid Execution Decision Tree:
+// resolveService is the function used by all commands to obtain a VaultService.
+// It can be replaced in tests to inject a fake service.
+var resolveService = defaultResolveService
+
+// defaultResolveService implements the Hybrid Execution Decision Tree:
 //
 //  1. Probe the Unix socket with a ping.
 //  2. If alive → return IPCVaultService.
 //  3. If dead AND auto_spawn=true → clean socket, spawn daemon, wait, return IPCVaultService.
 //  4. If dead AND auto_spawn=false → return LocalVaultService.
-func resolveService() (service.VaultService, error) {
+func defaultResolveService() (service.VaultService, error) {
 	cfg, _ := config.Load() // ignore error, use defaults
 	socketPath := ipc.SocketPath()
 

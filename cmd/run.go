@@ -47,6 +47,9 @@ var runCmd = &cobra.Command{
 			case vault.SecretTypeEnvironment:
 				combined = append(combined, k+"="+info.Value)
 
+			case vault.SecretTypeMap:
+				continue
+
 			case vault.SecretTypeFile:
 				tmpFile, err := os.CreateTemp("", "secret-sauce-*")
 				if err != nil {

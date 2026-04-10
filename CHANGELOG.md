@@ -31,6 +31,36 @@ All notable changes to this project will be documented here.
 
 ---
 
+## [Unreleased — map-secret-type]
+
+### Added
+
+- **`map` secret type** — stores a flat `map[string]string` as a minified JSON string.
+  Map secrets are never injected by `run` (no env var, no ghost file); they are
+  exclusively accessed on-demand via `sauce get`.
+
+- **`sauce get <secret> [key]` command** — reads any secret by name and prints its value
+  to stdout. With an optional `key` argument (only valid for `map` secrets), prints the
+  raw value for that key with no trailing newline, suitable for shell substitution
+  (`$(sauce get CREDS token)`). Without a key argument, prints the full value followed
+  by a newline.
+
+- **`sauce set map <secret> <json>` command** — stores a flat JSON object. The JSON is
+  validated to ensure all values are strings (no nested objects or arrays); nested data
+  is rejected with an error.
+
+- **`sauce set map <secret> --interactive` / `-i`** — prompts for key/value pairs
+  interactively; values are masked via `golang.org/x/term.ReadPassword`. An empty key
+  signals end of input.
+
+### Changed
+
+- **Binary renamed from `secret-sauce` to `sauce`** — entry point moved from `main.go`
+  at the module root to `cmd/sauce/main.go`. Install with:
+  `go install github.com/loupax/secret-sauce/cmd/sauce@latest`
+
+---
+
 ## [Unreleased — pubkey-derivation]
 
 ### Added
