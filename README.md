@@ -111,6 +111,7 @@ Secrets have an explicit type that controls how they are consumed:
 |---|---|
 | `environment` | Injected as an environment variable when running `sauce run` |
 | `file` | Materialized as a memory-backed ghost file and injected as `KEY=/dev/fd/N`; the file has no filesystem path and is invisible to other processes |
+| `map` | A flat `map[string]string` stored as JSON. **Never injected** by `run`; accessed on-demand via `sauce get` |
 
 ### Add / update a secret
 
@@ -120,7 +121,33 @@ sauce set environment API_KEY "sk-..."
 sauce set file TLS_CERT "$(cat server.crt)"
 ```
 
-The first argument is the type (`environment` or `file`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
+The first argument is the type (`environment`, `file`, or `map`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
+
+### Add / update a map secret
+
+```bash
+# From a JSON literal
+sauce set map CREDENTIALS '{"user":"alice","token":"s3cr3t"}'
+
+# Interactively (values are masked at input)
+sauce set map CREDENTIALS --interactive
+```
+
+A `map` secret stores a flat `map[string]string` as encrypted JSON. All values must be strings — nested objects and arrays are rejected. Keys may be any valid string. Map secrets are **never** automatically injected by `sauce run`; use `sauce get` to retrieve them explicitly.
+
+### Get a secret value
+
+```bash
+# Print the full value (any type)
+sauce get DATABASE_URL
+sauce get TLS_CERT
+
+# Print a specific key from a map secret (no trailing newline — suitable for shell substitution)
+sauce get CREDENTIALS user
+TOKEN=$(sauce get CREDENTIALS token)
+```
+
+`sauce get` works for all secret types. For `map` secrets a second argument selects a specific key; for `environment` and `file` secrets the full value is printed.
 
 ### Edit a secret in your editor
 
@@ -353,6 +380,7 @@ secret-sauce/
 | [`github.com/zalando/go-keyring`](https://github.com/zalando/go-keyring) | Linux Secret Service API (D-Bus) |
 | [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) | `flock` for OS-level file locking |
 | [`golang.org/x/sync`](https://pkg.go.dev/golang.org/x/sync) | `errgroup` for concurrent secret decryption |
+| [`golang.org/x/term`](https://pkg.go.dev/golang.org/x/term) | Terminal password masking for `sauce set map --interactive` |
 | Go standard library `net` | Unix Domain Socket IPC between CLI client and daemon |
 
 ---
