@@ -67,22 +67,30 @@ socket on shutdown.
 
 ## Installation
 
-```bash
-go install github.com/loupax/secret-sauce/cmd/sauce@latest
-```
-
-Or build from source:
+**From a cloned repo (recommended):**
 
 ```bash
 git clone https://github.com/loupax/secret-sauce
 cd secret-sauce
-go build -o sauce ./cmd/sauce
-# move the binary somewhere on your PATH
-mv sauce ~/.local/bin/
+go install ./cmd/sauce
 ```
 
 This installs the `sauce` binary to `$(go env GOPATH)/bin`.
 Make sure that directory is on your `$PATH` (it usually is if you have Go installed).
+
+**Without cloning, once a release is published:**
+
+```bash
+go install github.com/loupax/secret-sauce/cmd/sauce@latest
+```
+
+> Requires a published release tag.
+
+**Build a local binary only (no PATH change):**
+
+```bash
+go build -o sauce ./cmd/sauce
+```
 
 ---
 
@@ -266,6 +274,47 @@ After `share add`, every secret file is re-encrypted to all recipients listed in
 (which they initialised with `sauce init` in the same vault directory, typically
 shared via rsync, a git repo, or a network filesystem).
 
+### Import secrets from 1Password
+
+```bash
+sauce import 1password /path/to/export.1pux
+```
+
+Reads a 1Password Unencrypted Export (`.1pux`) file and imports all items as
+secrets into the current vault.
+
+> **CAUTION:** `.1pux` files are unencrypted plaintext. Delete the export file
+> immediately after import.
+
+| Item category | Secret type | Notes |
+|---|---|---|
+| `login`, `password` | `environment` | Password field value used; falls back to first non-empty login field |
+| `document` | `file` | Raw file bytes stored base64-encoded |
+| `database`, `server` | `map` | Section fields stored as a flat JSON map |
+| anything else | `environment` | First non-empty field value used |
+
+Document secrets are stored as base64-encoded strings. To recover the original
+bytes, pipe through `base64 --decode`:
+
+```bash
+sauce get MY_CERT | base64 --decode > server.crt
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--concurrency N` | `0` (auto) | Maximum number of parallel write operations. `0` falls through to the `concurrency` config field, then `runtime.NumCPU()` |
+
+The `concurrency` option can also be set permanently in
+`~/.config/secret-sauce/config.json`:
+
+```json
+{
+  "concurrency": 4
+}
+```
+
 ---
 
 ## Vault directory
@@ -306,6 +355,7 @@ changes from multiple machines without last-write-wins clobbering.
 |---|---|---|
 | `timeout` | `"15m"` | Idle period after which the daemon shuts itself down |
 | `auto_spawn` | `true` | Automatically start the daemon when a command needs it |
+| `concurrency` | `0` (auto) | Max parallel write operations for `import`; `0` uses `runtime.NumCPU()` |
 
 Set `auto_spawn: false` to always query the keyring directly without a daemon.
 
@@ -344,6 +394,7 @@ secret-sauce/
 │   ├── run.go
 │   ├── share.go
 │   ├── daemon.go             # daemon start / stop / status commands
+│   ├── import.go             # sauce import 1password command
 │   └── service_resolver.go   # hybrid execution decision tree
 └── internal/
     ├── config/               # config.json loading with defaults
@@ -362,7 +413,7 @@ secret-sauce/
 ## Known limitations (pre-alpha)
 
 - No `delete` command for removing the entire vault.
-- No `export` / `import` commands for backup or migration.
+- No `export` command for backup.
 - No way to remove a recipient without re-initialising the vault.
 - The private key cannot be rotated without re-initialising.
 - No support for secret namespacing or tagging.

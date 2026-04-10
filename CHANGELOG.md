@@ -4,6 +4,28 @@ All notable changes to this project will be documented here.
 
 ---
 
+## [Unreleased — 1password-import]
+
+### Added
+
+- **`sauce import 1password <path>`** — imports secrets from a 1Password Unencrypted
+  Export (`.1pux`) file. Item categories are mapped to secret types:
+  - `login` / `password` → `environment` (password field value)
+  - `document` → `file` (raw bytes stored base64-encoded; never written to disk)
+  - `database` / `server` → `map` (section fields as a flat JSON map)
+  - all other categories → `environment` (first non-empty field value)
+  Items with no usable value are skipped with a warning; a non-zero exit code is
+  returned when any items are skipped.
+
+- **`--concurrency N` flag on `sauce import 1password`** — limits the number of
+  parallel `WriteSecret` calls. Default `0` falls through to the config file value
+  then `runtime.NumCPU()`.
+
+- **`concurrency` field in `config.json`** — persistent concurrency limit for import
+  operations. `0` (or absent) means use `runtime.NumCPU()`.
+
+---
+
 ## v1.0.0 — The Sauce Release
 
 ### Highlights
