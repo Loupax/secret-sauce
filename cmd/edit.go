@@ -17,7 +17,7 @@ var editCmd = &cobra.Command{
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
 		case 0:
-			return []string{"environment", "file"}, cobra.ShellCompDirectiveNoFileComp
+			return []string{"environment", "file", "map"}, cobra.ShellCompDirectiveNoFileComp
 		case 1:
 			return completeSecretKeys(cmd, args, toComplete)
 		default:

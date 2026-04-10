@@ -48,6 +48,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&vaultDir, "vault-dir", "", "path to vault directory")
 
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(rmCmd)
