@@ -73,9 +73,42 @@ type OnePUXField struct {
 	Value OnePUXFieldValue `json:"value"`
 }
 
+type OnePUXSSHKeyMetadata struct {
+	PrivateKey  string          `json:"privateKey"`
+	PublicKey   string          `json:"publicKey"`
+	Fingerprint string          `json:"fingerprint"`
+	KeyType     json.RawMessage `json:"keyType"`
+}
+
+// sshKeyTypeString converts keyType to a plain string.
+// 1Password exports it as either a JSON string ("ed25519") or a
+// single-key object ({"rsa": null}), depending on client version.
+func sshKeyTypeString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err == nil {
+		for k := range obj {
+			return k
+		}
+	}
+	return string(raw)
+}
+
+type OnePUXSSHKey struct {
+	PrivateKey string                 `json:"privateKey"`
+	Metadata   *OnePUXSSHKeyMetadata  `json:"metadata"`
+}
+
 type OnePUXFieldValue struct {
-	StringValue string `json:"string"`
-	TOTP        string `json:"totp"`
+	StringValue string       `json:"string"`
+	TOTP        string       `json:"totp"`
+	SSHKey      *OnePUXSSHKey `json:"sshKey"`
 }
 
 type OnePUXDocAttrs struct {
@@ -112,6 +145,9 @@ func normalizeKey(s string) string {
 func getFieldValue(v OnePUXFieldValue) string {
 	if v.StringValue != "" {
 		return v.StringValue
+	}
+	if v.SSHKey != nil && v.SSHKey.PrivateKey != "" {
+		return v.SSHKey.PrivateKey
 	}
 	return v.TOTP
 }
@@ -361,6 +397,33 @@ var importOnePWCmd = &cobra.Command{
 							for _, f := range sec.Fields {
 								fk := normalizeKey(f.Title)
 								if fk == "" {
+									continue
+								}
+								// SSH key fields: expand into sub-entries rather than
+								// collapsing to just the private key.
+								if sk := f.Value.SSHKey; sk != nil {
+									var pubKey, fingerprint, keyType string
+									if sk.Metadata != nil {
+										pubKey = sk.Metadata.PublicKey
+										fingerprint = sk.Metadata.Fingerprint
+										keyType = sshKeyTypeString(sk.Metadata.KeyType)
+									}
+									for _, pair := range []struct{ k, v string }{
+										{"private_key", sk.PrivateKey},
+										{"public_key", pubKey},
+										{"fingerprint", fingerprint},
+										{"key_type", keyType},
+									} {
+										if pair.v == "" {
+											continue
+										}
+										dest := pair.k
+										if _, exists := fields[dest]; exists {
+											dest = dest + "_" + strconv.Itoa(counter)
+											counter++
+										}
+										fields[dest] = pair.v
+									}
 									continue
 								}
 								if _, exists := fields[fk]; exists {
