@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Timeout   string `json:"timeout"`    // e.g. "15m" — idle timeout for daemon
-	AutoSpawn bool   `json:"auto_spawn"` // if true, CLI auto-starts daemon when socket is absent
+	Timeout     string `json:"timeout"`               // e.g. "15m" — idle timeout for daemon
+	AutoSpawn   bool   `json:"auto_spawn"`            // if true, CLI auto-starts daemon when socket is absent
+	Concurrency int    `json:"concurrency,omitempty"` // max parallel writes; 0 = fall through to runtime.NumCPU()
 }
 
 func defaults() *Config {
