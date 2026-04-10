@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"runtime"
@@ -216,7 +217,10 @@ var importOnePWCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "CAUTION: .1pux files are unencrypted. Delete the export file immediately after import.")
 
-		cfg, _ := config.Load()
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
 		svc, err := resolveService()
 		if err != nil {
 			return fmt.Errorf("resolve service: %w", err)
@@ -342,18 +346,13 @@ var importOnePWCmd = &cobra.Command{
 							skippedBeforeWrite++
 							continue
 						}
-						var rawBuf []byte
-						buf := make([]byte, 4096)
-						for {
-							n, readErr := rc.Read(buf)
-							if n > 0 {
-								rawBuf = append(rawBuf, buf[:n]...)
-							}
-							if readErr != nil {
-								break
-							}
-						}
+						rawBuf, readErr := io.ReadAll(rc)
 						rc.Close()
+						if readErr != nil {
+							fmt.Fprintf(os.Stderr, "warning: skipping document %q — read error: %v\n", item.Overview.Title, readErr)
+							skippedBeforeWrite++
+							continue
+						}
 
 						value := string(rawBuf)
 
