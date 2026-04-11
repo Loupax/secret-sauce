@@ -15,18 +15,16 @@ const (
 	OpGetPubKey = "get_pub_key"
 )
 
-// SecretMeta carries type and value for a single secret over the wire.
+// SecretMeta carries data for a single secret over the wire.
 type SecretMeta struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	Data map[string]string `json:"data"`
 }
 
 type Request struct {
-	Op       string `json:"op"`
-	VaultDir string `json:"vault_dir"`
-	Key      string `json:"key,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Type     string `json:"type,omitempty"`
+	Op       string            `json:"op"`
+	VaultDir string            `json:"vault_dir"`
+	Key      string            `json:"key,omitempty"`
+	Data     map[string]string `json:"data,omitempty"`
 }
 
 type Response struct {

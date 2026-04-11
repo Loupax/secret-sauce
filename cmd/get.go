@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -31,20 +30,19 @@ var getCmd = &cobra.Command{
 		}
 
 		if len(args) == 1 {
-			fmt.Fprintln(os.Stdout, info.Value)
+			// Print all data as key=value lines, or just "value" if only that key exists.
+			if v, ok := info.Data["value"]; ok && len(info.Data) == 1 {
+				fmt.Fprintln(os.Stdout, v)
+			} else {
+				for k, v := range info.Data {
+					fmt.Fprintf(os.Stdout, "%s=%s\n", k, v)
+				}
+			}
 			return nil
 		}
 
-		if info.Type != vault.SecretTypeMap {
-			return fmt.Errorf("secret %q is not of type 'map'; cannot access key %q", args[0], args[1])
-		}
-
-		var m map[string]string
-		if err := json.Unmarshal([]byte(info.Value), &m); err != nil {
-			return fmt.Errorf("parse map secret: %w", err)
-		}
-
-		v, ok := m[args[1]]
+		// Two-argument form: look up a specific key in the data map.
+		v, ok := info.Data[args[1]]
 		if !ok {
 			return fmt.Errorf("key %q not found in secret %q", args[1], args[0])
 		}
@@ -52,3 +50,6 @@ var getCmd = &cobra.Command{
 		return nil
 	},
 }
+
+// ensure vault import is present for ErrKeyNotFound
+var _ = vault.ErrKeyNotFound

@@ -47,7 +47,8 @@ func TestWriteAndReadSecret(t *testing.T) {
 	}
 
 	recipients := []age.Recipient{identity.Recipient()}
-	if err := WriteSecret(vaultDir, "FOO", "bar", SecretTypeEnvironment, recipients, identity); err != nil {
+	data := map[string]string{"value": "bar"}
+	if err := WriteSecret(vaultDir, "FOO", data, recipients, identity); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
@@ -55,11 +56,8 @@ func TestWriteAndReadSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadSecret: %v", err)
 	}
-	if got.Value != "bar" {
-		t.Errorf("ReadSecret: want %q, got %q", "bar", got.Value)
-	}
-	if got.Type != SecretTypeEnvironment {
-		t.Errorf("ReadSecret: want type %q, got %q", SecretTypeEnvironment, got.Type)
+	if got.Data["value"] != "bar" {
+		t.Errorf("ReadSecret: want %q, got %q", "bar", got.Data["value"])
 	}
 }
 
@@ -78,12 +76,12 @@ func TestWriteSecretOverwrite(t *testing.T) {
 	recipients := []age.Recipient{identity.Recipient()}
 
 	// Write initial value
-	if err := WriteSecret(vaultDir, "FOO", "bar", SecretTypeEnvironment, recipients, identity); err != nil {
+	if err := WriteSecret(vaultDir, "FOO", map[string]string{"value": "bar"}, recipients, identity); err != nil {
 		t.Fatalf("WriteSecret (first): %v", err)
 	}
 
 	// Overwrite with new value
-	if err := WriteSecret(vaultDir, "FOO", "updated", SecretTypeEnvironment, recipients, identity); err != nil {
+	if err := WriteSecret(vaultDir, "FOO", map[string]string{"value": "updated"}, recipients, identity); err != nil {
 		t.Fatalf("WriteSecret (overwrite): %v", err)
 	}
 
@@ -91,8 +89,8 @@ func TestWriteSecretOverwrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadSecret after overwrite: %v", err)
 	}
-	if got.Value != "updated" {
-		t.Errorf("ReadSecret after overwrite: want %q, got %q", "updated", got.Value)
+	if got.Data["value"] != "updated" {
+		t.Errorf("ReadSecret after overwrite: want %q, got %q", "updated", got.Data["value"])
 	}
 
 	// Verify only one .age file exists (overwrite, not duplicate)
@@ -102,6 +100,42 @@ func TestWriteSecretOverwrite(t *testing.T) {
 	}
 	if len(files) != 1 {
 		t.Errorf("expected 1 .age file after overwrite, got %d", len(files))
+	}
+}
+
+func TestWriteSecretStrictReplace(t *testing.T) {
+	vaultDir := t.TempDir()
+
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	if err := Init(vaultDir, identity); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	recipients := []age.Recipient{identity.Recipient()}
+
+	// Write initial data with two keys
+	if err := WriteSecret(vaultDir, "FOO", map[string]string{"a": "1", "b": "2"}, recipients, identity); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
+	}
+
+	// Overwrite with only one key — the other must be dropped
+	if err := WriteSecret(vaultDir, "FOO", map[string]string{"a": "new"}, recipients, identity); err != nil {
+		t.Fatalf("WriteSecret (overwrite): %v", err)
+	}
+
+	got, err := ReadSecret(vaultDir, "FOO", identity)
+	if err != nil {
+		t.Fatalf("ReadSecret: %v", err)
+	}
+	if got.Data["a"] != "new" {
+		t.Errorf("expected a=new, got %q", got.Data["a"])
+	}
+	if _, exists := got.Data["b"]; exists {
+		t.Error("expected key 'b' to be dropped after strict replace, but it still exists")
 	}
 }
 
@@ -132,7 +166,7 @@ func TestDeleteSecret(t *testing.T) {
 	}
 
 	recipients := []age.Recipient{identity.Recipient()}
-	if err := WriteSecret(vaultDir, "TO_DELETE", "secret", SecretTypeEnvironment, recipients, identity); err != nil {
+	if err := WriteSecret(vaultDir, "TO_DELETE", map[string]string{"value": "secret"}, recipients, identity); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
@@ -180,7 +214,7 @@ func TestReadAllSecrets(t *testing.T) {
 		"DB":  "postgres://localhost",
 	}
 	for k, v := range secrets {
-		if err := WriteSecret(vaultDir, k, v, SecretTypeEnvironment, recipients, identity); err != nil {
+		if err := WriteSecret(vaultDir, k, map[string]string{"value": v}, recipients, identity); err != nil {
 			t.Fatalf("WriteSecret(%s): %v", k, err)
 		}
 	}
@@ -195,11 +229,8 @@ func TestReadAllSecrets(t *testing.T) {
 	}
 
 	for k, want := range secrets {
-		if got[k].Value != want {
-			t.Errorf("%s: want %q, got %q", k, want, got[k].Value)
-		}
-		if got[k].Type != SecretTypeEnvironment {
-			t.Errorf("%s: want type %q, got %q", k, SecretTypeEnvironment, got[k].Type)
+		if got[k].Data["value"] != want {
+			t.Errorf("%s: want %q, got %q", k, want, got[k].Data["value"])
 		}
 	}
 }
@@ -229,7 +260,7 @@ func TestMultiRecipient(t *testing.T) {
 		t.Fatalf("ReadRecipients: %v", err)
 	}
 
-	if err := WriteSecret(vaultDir, "KEY", "value", SecretTypeEnvironment, recipients, identity1); err != nil {
+	if err := WriteSecret(vaultDir, "KEY", map[string]string{"value": "value"}, recipients, identity1); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
@@ -237,8 +268,8 @@ func TestMultiRecipient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadSecret with identity2: %v", err)
 	}
-	if got.Value != "value" {
-		t.Errorf("KEY: want %q, got %q", "value", got.Value)
+	if got.Data["value"] != "value" {
+		t.Errorf("KEY: want %q, got %q", "value", got.Data["value"])
 	}
 }
 
@@ -269,21 +300,6 @@ func TestReadRecipients(t *testing.T) {
 	}
 }
 
-func TestValidSecretType(t *testing.T) {
-	if !ValidSecretType(SecretTypeEnvironment) {
-		t.Error("expected SecretTypeEnvironment to be valid")
-	}
-	if !ValidSecretType(SecretTypeFile) {
-		t.Error("expected SecretTypeFile to be valid")
-	}
-	if ValidSecretType(SecretType("env_var")) {
-		t.Error("expected 'env_var' to be invalid")
-	}
-	if ValidSecretType(SecretType("")) {
-		t.Error("expected empty string to be invalid")
-	}
-}
-
 func TestFileTypeSecret(t *testing.T) {
 	vaultDir := t.TempDir()
 
@@ -297,7 +313,7 @@ func TestFileTypeSecret(t *testing.T) {
 	}
 
 	recipients := []age.Recipient{identity.Recipient()}
-	if err := WriteSecret(vaultDir, "MY_CERT", "cert-contents", SecretTypeFile, recipients, identity); err != nil {
+	if err := WriteSecret(vaultDir, "MY_CERT", map[string]string{"value": "cert-contents"}, recipients, identity); err != nil {
 		t.Fatalf("WriteSecret: %v", err)
 	}
 
@@ -305,10 +321,7 @@ func TestFileTypeSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadSecret: %v", err)
 	}
-	if got.Value != "cert-contents" {
-		t.Errorf("ReadSecret: want %q, got %q", "cert-contents", got.Value)
-	}
-	if got.Type != SecretTypeFile {
-		t.Errorf("ReadSecret: want type %q, got %q", SecretTypeFile, got.Type)
+	if got.Data["value"] != "cert-contents" {
+		t.Errorf("ReadSecret: want %q, got %q", "cert-contents", got.Data["value"])
 	}
 }

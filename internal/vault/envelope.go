@@ -8,26 +8,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// SecretType is the discriminator for envelope payloads.
-type SecretType string
-
-const (
-	SecretTypeEnvironment SecretType = "environment"
-	SecretTypeFile        SecretType = "file"
-	SecretTypeMap         SecretType = "map"
-)
-
-// ValidSecretType returns true only when t is one of the known SecretType constants.
-func ValidSecretType(t SecretType) bool {
-	return t == SecretTypeEnvironment || t == SecretTypeFile || t == SecretTypeMap
-}
-
 // SecretEnvelope is the plaintext JSON payload encrypted inside every .age file.
 type SecretEnvelope struct {
-	Type  SecretType `json:"type"`
-	Name  string     `json:"name"`
-	Value string     `json:"value"`
-	Tags  []string   `json:"tags"`
+	Name string            `json:"name"`
+	Data map[string]string `json:"data"`
+	Tags []string          `json:"tags"`
 }
 
 // newUUID generates a random UUID v4 string.

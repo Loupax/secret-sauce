@@ -55,10 +55,7 @@ func (s *IPCVaultService) ReadAllSecrets(vaultDir string) (map[string]vault.Secr
 	}
 	result := make(map[string]vault.SecretInfo, len(resp.Secrets))
 	for k, meta := range resp.Secrets {
-		result[k] = vault.SecretInfo{
-			Type:  vault.SecretType(meta.Type),
-			Value: meta.Value,
-		}
+		result[k] = vault.SecretInfo{Data: meta.Data}
 	}
 	return result, nil
 }
@@ -74,19 +71,15 @@ func (s *IPCVaultService) ReadSecret(vaultDir, key string) (vault.SecretInfo, er
 	if resp.Secret == nil {
 		return vault.SecretInfo{}, vault.ErrKeyNotFound
 	}
-	return vault.SecretInfo{
-		Type:  vault.SecretType(resp.Secret.Type),
-		Value: resp.Secret.Value,
-	}, nil
+	return vault.SecretInfo{Data: resp.Secret.Data}, nil
 }
 
-func (s *IPCVaultService) WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error {
+func (s *IPCVaultService) WriteSecret(vaultDir, key string, data map[string]string) error {
 	resp, err := s.roundTrip(ipc.Request{
 		Op:       ipc.OpWrite,
 		VaultDir: vaultDir,
 		Key:      key,
-		Value:    value,
-		Type:     string(secretType),
+		Data:     data,
 	})
 	if err != nil {
 		return err

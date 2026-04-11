@@ -26,11 +26,11 @@ func (s *stubVaultService) ReadSecret(_ string, key string) (vault.SecretInfo, e
 	return info, nil
 }
 
-func (s *stubVaultService) WriteSecret(_ string, key, value string, secretType vault.SecretType) error {
+func (s *stubVaultService) WriteSecret(_ string, key string, data map[string]string) error {
 	if s.secrets == nil {
 		s.secrets = make(map[string]vault.SecretInfo)
 	}
-	s.secrets[key] = vault.SecretInfo{Type: secretType, Value: value}
+	s.secrets[key] = vault.SecretInfo{Data: data}
 	return nil
 }
 

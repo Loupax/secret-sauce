@@ -111,16 +111,6 @@ Vault initialized.
 Public key (share this with teammates): age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 ```
 
-### Secret types
-
-Secrets have an explicit type that controls how they are consumed:
-
-| Type | Description |
-|---|---|
-| `environment` | Injected as an environment variable when running `sauce run` |
-| `file` | Materialized as a memory-backed ghost file and injected as `KEY=/dev/fd/N`; the file has no filesystem path and is invisible to other processes |
-| `map` | A flat `map[string]string` stored as JSON. **Never injected** by `run`; accessed on-demand via `sauce get` |
-
 ### Add / update a secret
 
 ```bash
@@ -129,33 +119,32 @@ sauce set environment API_KEY "sk-..."
 sauce set file TLS_CERT "$(cat server.crt)"
 ```
 
-The first argument is the type (`environment`, `file`, or `map`). `environment` secrets are injected as plain environment variables. `file` secrets are injected as memory-backed ghost files (see below).
+The first argument (`environment`, `file`, or `map`) is a UI hint only. All secrets are stored as a `map[string]string` payload. For `environment` and `file` subcommands the value is stored under the key `"value"`.
 
 ### Add / update a map secret
 
 ```bash
-# From a JSON literal
-sauce set map CREDENTIALS '{"user":"alice","token":"s3cr3t"}'
+# From key=value pairs
+sauce set map CREDENTIALS user=alice token=s3cr3t
 
 # Interactively (values are masked at input)
 sauce set map CREDENTIALS --interactive
 ```
 
-A `map` secret stores a flat `map[string]string` as encrypted JSON. All values must be strings — nested objects and arrays are rejected. Keys may be any valid string. Map secrets are **never** automatically injected by `sauce run`; use `sauce get` to retrieve them explicitly.
+A `map` secret stores an arbitrary flat `map[string]string`. Use `sauce get` to retrieve individual keys.
 
 ### Get a secret value
 
 ```bash
-# Print the full value (any type)
+# Print the value (secrets stored with a single "value" key)
 sauce get DATABASE_URL
-sauce get TLS_CERT
 
 # Print a specific key from a map secret (no trailing newline — suitable for shell substitution)
 sauce get CREDENTIALS user
 TOKEN=$(sauce get CREDENTIALS token)
 ```
 
-`sauce get` works for all secret types. For `map` secrets a second argument selects a specific key; for `environment` and `file` secrets the full value is printed.
+`sauce get` works for all secrets. A second argument selects a specific key from the data map; without it, all key=value pairs are printed (or just the value for single-key secrets).
 
 ### Edit a secret in your editor
 
@@ -164,7 +153,7 @@ sauce edit environment DATABASE_URL
 sauce edit file TLS_CERT
 ```
 
-Opens the current value in `$EDITOR` (falls back to `vi`, then `nano`). When the editor
+Opens the current `"value"` key in `$EDITOR` (falls back to `vi`, then `nano`). When the editor
 exits cleanly, the updated content is re-encrypted and persisted. If the editor exits with
 a non-zero code, the vault is left unchanged.
 
@@ -182,15 +171,31 @@ Returns an error if the key does not exist.
 sauce ls
 ```
 
-Prints tab-separated `<type>\t<key>` lines, sorted alphabetically by key. Values are
-never output to the terminal. The tab-separated format is suitable for UNIX pipeline
-composition:
+Prints secret names sorted alphabetically, one per line. Values are never output to the terminal.
 
+## Wiring Secrets: sauce.toml
+
+After storing a secret with `sauce set`, wire it to your process by creating `sauce.toml` in your project directory:
+
+```toml
+# sauce.toml — commit this file; it contains no secret values
+
+[env]
+# ENVIRONMENT_VARIABLE = "vault-secret-name"
+DATABASE_URL    = "prod-db-url"
+STRIPE_API_KEY  = "stripe-live-key"
+SENTRY_DSN      = "sentry-dsn"
+
+[file]
+# ENVIRONMENT_VARIABLE = "vault-secret-name"
+# Secret injected as ghost file; env var points to /dev/fd/N
+TLS_CERT        = "prod-tls-cert"
+TLS_KEY         = "prod-tls-key"
 ```
-environment	API_KEY
-environment	DATABASE_URL
-file	TLS_CERT
-```
+
+`sauce run` reads this file and injects matching secrets. If `sauce.toml` is missing, `sauce run` exits with a fatal error.
+
+> **Note:** `sauce.toml` is meant to be committed to your repository. It contains no secret values — only the names of secrets stored in your vault.
 
 ### Run a command with secrets injected
 
@@ -200,15 +205,11 @@ sauce run -- python manage.py runserver
 sauce run -- bash -c 'echo $DATABASE_URL'
 ```
 
-Decrypts all secrets concurrently into memory, then executes the given command with the
-combined environment. Standard I/O is proxied transparently and the child's exit code is
-preserved. Uses the daemon if available (see below), otherwise falls back to querying the
-keyring directly.
+Reads `sauce.toml` from the working directory, fetches each referenced secret by name, and executes the given command with secrets injected. Standard I/O is proxied transparently and the child's exit code is preserved. Uses the daemon if available (see below), otherwise falls back to querying the keyring directly.
 
-**`environment` secrets** are merged into the child's environment as plain `KEY=VALUE`
-pairs, identical to regular environment variables.
+**`[env]` entries** are merged into the child's environment as plain `KEY=VALUE` pairs.
 
-**`file` secrets** are injected using the Ghost File pattern:
+**`[file]` entries** are injected using the Ghost File pattern:
 
 1. A temporary file is created on disk and immediately **unlinked** — the directory entry
    is removed, making the file invisible to `ls`, `find`, and any other process. The
@@ -394,6 +395,7 @@ secret-sauce/
     ├── config/               # config.json loading with defaults
     ├── ipc/                  # Unix socket protocol (request/response types)
     ├── daemon/               # daemon server (idle timeout, graceful shutdown)
+    ├── manifest/             # sauce.toml schema (Manifest struct)
     ├── service/              # VaultService interface + Local and IPC implementations
     ├── keyring/              # OS keyring wrapper (go-keyring + D-Bus error handling)
     └── vault/                # age encryption, file locking, recipient management
@@ -423,6 +425,7 @@ secret-sauce/
 | [`filippo.io/age`](https://pkg.go.dev/filippo.io/age) | X25519 key generation, multi-recipient envelope encryption |
 | [`github.com/spf13/cobra`](https://github.com/spf13/cobra) | CLI framework |
 | [`github.com/zalando/go-keyring`](https://github.com/zalando/go-keyring) | Linux Secret Service API (D-Bus) |
+| [`github.com/pelletier/go-toml/v2`](https://github.com/pelletier/go-toml) | TOML parsing for `sauce.toml` manifest |
 | [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) | `flock` for OS-level file locking |
 | [`golang.org/x/sync`](https://pkg.go.dev/golang.org/x/sync) | `errgroup` for concurrent secret decryption |
 | [`golang.org/x/term`](https://pkg.go.dev/golang.org/x/term) | Terminal password masking for `sauce set map --interactive` |

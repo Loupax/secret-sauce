@@ -54,7 +54,7 @@ func (s *LocalVaultService) ReadSecret(vaultDir, key string) (vault.SecretInfo, 
 	return vault.ReadSecret(vaultDir, key, identity)
 }
 
-func (s *LocalVaultService) WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error {
+func (s *LocalVaultService) WriteSecret(vaultDir, key string, data map[string]string) error {
 	identity, err := s.loadIdentity(vaultDir)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (s *LocalVaultService) WriteSecret(vaultDir, key, value string, secretType 
 		return fmt.Errorf("read recipients: %w", err)
 	}
 
-	return vault.WriteSecret(vaultDir, key, value, secretType, recipients, identity)
+	return vault.WriteSecret(vaultDir, key, data, recipients, identity)
 }
 
 func (s *LocalVaultService) GetPublicKey(vaultDir string) (string, error) {

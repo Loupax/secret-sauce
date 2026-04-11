@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strings"
 
 	"github.com/loupax/secret-sauce/internal/vault"
 	"github.com/spf13/cobra"
@@ -25,9 +27,9 @@ var editCmd = &cobra.Command{
 		}
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		secretType := vault.SecretType(args[0])
-		if !vault.ValidSecretType(secretType) {
-			return fmt.Errorf("type must be 'environment' or 'file'; got %q", args[0])
+		subtype := args[0]
+		if subtype != "environment" && subtype != "file" && subtype != "map" {
+			return fmt.Errorf("type must be 'environment', 'file', or 'map'; got %q", args[0])
 		}
 		key := args[1]
 
@@ -43,7 +45,20 @@ var editCmd = &cobra.Command{
 			return fmt.Errorf("read secret: %w", err)
 		}
 		if err == nil {
-			currentValue = info.Value
+			if subtype == "map" {
+				keys := make([]string, 0, len(info.Data))
+				for k := range info.Data {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				var lines []string
+				for _, k := range keys {
+					lines = append(lines, k+"="+info.Data[k])
+				}
+				currentValue = strings.Join(lines, "\n")
+			} else {
+				currentValue = info.Data["value"]
+			}
 		}
 
 		// Create a temp file for the editor.
@@ -94,7 +109,23 @@ var editCmd = &cobra.Command{
 		}
 
 		// Persist the updated value.
-		if err := svc.WriteSecret(vaultDir, key, string(contents), secretType); err != nil {
+		var data map[string]string
+		if subtype == "map" {
+			data = make(map[string]string)
+			for _, line := range strings.Split(strings.TrimSpace(string(contents)), "\n") {
+				if line == "" {
+					continue
+				}
+				k, v, ok := strings.Cut(line, "=")
+				if !ok {
+					return fmt.Errorf("invalid map line %q: expected key=value", line)
+				}
+				data[k] = v
+			}
+		} else {
+			data = map[string]string{"value": string(contents)}
+		}
+		if err := svc.WriteSecret(vaultDir, key, data); err != nil {
 			return fmt.Errorf("write secret: %w", err)
 		}
 
