@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/loupax/secret-sauce/internal/manifest"
@@ -32,11 +32,11 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("get working directory: %w", err)
 		}
-		manifestPath := wd + "/sauce.toml"
+		manifestPath := filepath.Join(wd, "sauce.toml")
 		manifestData, err := os.ReadFile(manifestPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				log.Fatal("sauce.toml not found. Create it manually to wire secrets.")
+				return fmt.Errorf("sauce.toml not found; create it manually to wire secrets")
 			}
 			return fmt.Errorf("read sauce.toml: %w", err)
 		}
