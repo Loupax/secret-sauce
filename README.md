@@ -181,17 +181,27 @@ After storing a secret with `sauce set`, wire it to your process by creating `sa
 # sauce.toml — commit this file; it contains no secret values
 
 [env]
-# ENVIRONMENT_VARIABLE = "vault-secret-name"
+# Simple secret (stored via `sauce set environment`):
+#   ENVIRONMENT_VARIABLE = "vault-secret-name"
 DATABASE_URL    = "prod-db-url"
 STRIPE_API_KEY  = "stripe-live-key"
-SENTRY_DSN      = "sentry-dsn"
+
+# Map secret field (stored via `sauce set map`):
+#   ENVIRONMENT_VARIABLE = "vault-secret-name.field"
+DB_HOST         = "database.host"
+DB_PORT         = "database.port"
 
 [file]
-# ENVIRONMENT_VARIABLE = "vault-secret-name"
 # Secret injected as ghost file; env var points to /dev/fd/N
-TLS_CERT        = "prod-tls-cert"
-TLS_KEY         = "prod-tls-key"
+TLS_CERT        = "tls.cert"
+TLS_KEY         = "tls.key"
+SSH_PUBLIC_KEY  = "ssh_key.public_key"
+SSH_PRIVATE_KEY = "ssh_key.private_key"
 ```
+
+The right-hand side is either:
+- `"secret-name"` — injects the `value` field (set via `sauce set environment` or `sauce set file`)
+- `"secret-name.field"` — injects a specific field from a map secret (set via `sauce set map`)
 
 `sauce run` reads this file and injects matching secrets. If `sauce.toml` is missing, `sauce run` exits with a fatal error.
 
