@@ -170,10 +170,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			s.index.mu.RLock()
 			secrets := make(map[string]ipc.SecretMeta, len(s.index.entries))
 			for name, entry := range s.index.entries {
-				secrets[name] = ipc.SecretMeta{
-					Type:  string(entry.Envelope.Type),
-					Value: entry.Envelope.Value,
-				}
+				secrets[name] = ipc.SecretMeta{Data: entry.Envelope.Data}
 			}
 			s.index.mu.RUnlock()
 			resp = ipc.Response{OK: true, Secrets: secrets}
@@ -189,19 +186,13 @@ func (s *Server) handleConn(conn net.Conn) {
 			if !found {
 				resp = ipc.Response{OK: false, Error: vault.ErrKeyNotFound.Error()}
 			} else {
-				meta := ipc.SecretMeta{
-					Type:  string(entry.Envelope.Type),
-					Value: entry.Envelope.Value,
-				}
+				meta := ipc.SecretMeta{Data: entry.Envelope.Data}
 				resp = ipc.Response{OK: true, Secret: &meta}
 			}
 		}
 
 	case ipc.OpWrite:
-		secretType := vault.SecretType(req.Type)
-		if !vault.ValidSecretType(secretType) {
-			resp = ipc.Response{OK: false, Error: "invalid secret type"}
-		} else if err := s.svc.WriteSecret(req.VaultDir, req.Key, req.Value, secretType); err != nil {
+		if err := s.svc.WriteSecret(req.VaultDir, req.Key, req.Data); err != nil {
 			resp = ipc.Response{OK: false, Error: err.Error()}
 		} else {
 			// Invalidate index so next read rebuilds from disk.

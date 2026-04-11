@@ -14,7 +14,6 @@ import (
 
 	"github.com/loupax/secret-sauce/internal/config"
 	"github.com/loupax/secret-sauce/internal/service"
-	"github.com/loupax/secret-sauce/internal/vault"
 	"github.com/spf13/cobra"
 )
 
@@ -35,11 +34,11 @@ type OnePUXVault struct {
 }
 
 type OnePUXItem struct {
-	UUID         string          `json:"uuid"`
-	CategoryUUID string          `json:"categoryUuid"`
-	AltCategory  string          `json:"categoryUUID,omitempty"`
-	Overview     OnePUXOverview  `json:"overview"`
-	Details      OnePUXDetails   `json:"details"`
+	UUID         string         `json:"uuid"`
+	CategoryUUID string         `json:"categoryUuid"`
+	AltCategory  string         `json:"categoryUUID,omitempty"`
+	Overview     OnePUXOverview `json:"overview"`
+	Details      OnePUXDetails  `json:"details"`
 }
 
 type OnePUXOverview struct {
@@ -101,13 +100,13 @@ func sshKeyTypeString(raw json.RawMessage) string {
 }
 
 type OnePUXSSHKey struct {
-	PrivateKey string                 `json:"privateKey"`
-	Metadata   *OnePUXSSHKeyMetadata  `json:"metadata"`
+	PrivateKey string                `json:"privateKey"`
+	Metadata   *OnePUXSSHKeyMetadata `json:"metadata"`
 }
 
 type OnePUXFieldValue struct {
-	StringValue string       `json:"string"`
-	TOTP        string       `json:"totp"`
+	StringValue string        `json:"string"`
+	TOTP        string        `json:"totp"`
 	SSHKey      *OnePUXSSHKey `json:"sshKey"`
 }
 
@@ -121,7 +120,7 @@ type OnePUXDocAttrs struct {
 // ---------------------------------------------------------------------------
 
 var (
-	reNonAlnum     = regexp.MustCompile(`[^a-z0-9_]`)
+	reNonAlnum        = regexp.MustCompile(`[^a-z0-9_]`)
 	reMultiUnderscore = regexp.MustCompile(`_+`)
 )
 
@@ -167,9 +166,8 @@ func resolveConcurrency(flagValue int, cfg *config.Config) int {
 // ---------------------------------------------------------------------------
 
 type writeTask struct {
-	key        string
-	value      string
-	secretType vault.SecretType
+	key  string
+	data map[string]string
 }
 
 func runBoundedWrites(tasks []writeTask, concurrency int, svc service.VaultService, dir string) (imported, skipped int) {
@@ -184,7 +182,7 @@ func runBoundedWrites(tasks []writeTask, concurrency int, svc service.VaultServi
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			err := svc.WriteSecret(dir, t.key, t.value, t.secretType)
+			err := svc.WriteSecret(dir, t.key, t.data)
 			mu.Lock()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to write %q: %v\n", t.key, err)
@@ -272,12 +270,12 @@ var importOnePWCmd = &cobra.Command{
 				for _, item := range v.Items {
 					// Derive the base key from the item title
 					baseKey := normalizeKey(item.Overview.Title)
-					
+
 					// Fallback 1: Try the first URL
 					if baseKey == "" && len(item.Overview.URLs) > 0 {
 						baseKey = normalizeKey(item.Overview.URLs[0].URL)
 					}
-					
+
 					// Fallback 2: Try the username field
 					if baseKey == "" {
 						for _, f := range item.Details.LoginFields {
@@ -326,7 +324,7 @@ var importOnePWCmd = &cobra.Command{
 							skippedBeforeWrite++
 							continue
 						}
-						tasks = append(tasks, writeTask{baseKey, primaryValue, vault.SecretTypeEnvironment})
+						tasks = append(tasks, writeTask{baseKey, map[string]string{"value": primaryValue}})
 
 					case "com.1password.category.document", "006":
 						fileID := item.Details.DocumentAttributes.FileID
@@ -361,7 +359,7 @@ var importOnePWCmd = &cobra.Command{
 						if key == "" {
 							key = baseKey
 						}
-						tasks = append(tasks, writeTask{key, value, vault.SecretTypeFile})
+						tasks = append(tasks, writeTask{key, map[string]string{"value": value}})
 
 					case "com.1password.category.login", "001",
 						"com.1password.category.database", "102",
@@ -439,8 +437,7 @@ var importOnePWCmd = &cobra.Command{
 							fields["notes"] = item.Details.NotesPlain
 						}
 
-						jsonBytes, _ := json.Marshal(fields)
-						tasks = append(tasks, writeTask{baseKey, string(jsonBytes), vault.SecretTypeMap})
+						tasks = append(tasks, writeTask{baseKey, fields})
 
 					case "com.1password.category.securenote", "003":
 						value := item.Details.NotesPlain
@@ -464,7 +461,7 @@ var importOnePWCmd = &cobra.Command{
 							skippedBeforeWrite++
 							continue
 						}
-						tasks = append(tasks, writeTask{baseKey, value, vault.SecretTypeEnvironment})
+						tasks = append(tasks, writeTask{baseKey, map[string]string{"value": value}})
 
 					default:
 						// Scan loginFields then sections for first non-empty string value
@@ -497,7 +494,7 @@ var importOnePWCmd = &cobra.Command{
 							skippedBeforeWrite++
 							continue
 						}
-						tasks = append(tasks, writeTask{baseKey, value, vault.SecretTypeEnvironment})
+						tasks = append(tasks, writeTask{baseKey, map[string]string{"value": value}})
 					}
 				}
 			}
@@ -511,7 +508,7 @@ var importOnePWCmd = &cobra.Command{
 		if len(tasks) > 0 {
 			t := tasks[0]
 			tasks = tasks[1:]
-			if err := svc.WriteSecret(vaultDir, t.key, t.value, t.secretType); err != nil {
+			if err := svc.WriteSecret(vaultDir, t.key, t.data); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to write %q: %v\n", t.key, err)
 				skippedWrite++
 			} else {

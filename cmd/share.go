@@ -70,7 +70,7 @@ var shareAddCmd = &cobra.Command{
 		for key, info := range secrets {
 			key, info := key, info
 			g.Go(func() error {
-				if err := vlt.WriteSecret(vaultDir, key, info.Value, info.Type, recipients, identity); err != nil {
+				if err := vlt.WriteSecret(vaultDir, key, info.Data, recipients, identity); err != nil {
 					return fmt.Errorf("failed to re-encrypt secret %s: %w", key, err)
 				}
 				return nil

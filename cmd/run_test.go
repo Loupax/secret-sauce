@@ -2,53 +2,54 @@ package cmd
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/loupax/secret-sauce/internal/vault"
 )
 
-func TestRunSkipsMapSecrets(t *testing.T) {
-	secrets := map[string]vault.SecretInfo{
-		"DB_URL":   {Type: vault.SecretTypeEnvironment, Value: "postgres://localhost"},
-		"CFG":      {Type: vault.SecretTypeMap, Value: `{"host":"localhost"}`},
-	}
-	defer withStub(newStub(secrets))()
-
-	// Use `env` to capture the injected environment.
-	runCmd.SetArgs([]string{"env"})
-	var outBuf strings.Builder
-	runCmd.SetOut(&outBuf)
-
-	// We can't easily capture subprocess env output here without spawning a real
-	// process, so we test the run command logic by inspecting the combined env
-	// that would be built. Instead, run the command with `true` (no-op) to verify
-	// no panic/error from map handling, and test the env assembly in a unit style.
-
-	// Build the combined env slice the same way run.go does.
-	combined := buildCombinedEnv(secrets)
-
-	for _, entry := range combined {
-		if strings.HasPrefix(entry, "CFG=") {
-			t.Errorf("map secret CFG should not appear in env, but got: %q", entry)
+// buildCombinedEnvFromManifestEnv replicates env-injection logic for unit testing.
+// envMap: envVar -> secretName, secrets: name -> SecretInfo
+func buildCombinedEnvFromManifestEnv(envMap map[string]string, secrets map[string]vault.SecretInfo) []string {
+	var combined []string
+	for envVar, secretName := range envMap {
+		info, ok := secrets[secretName]
+		if !ok {
+			continue
 		}
+		combined = append(combined, envVar+"="+info.Data["value"])
 	}
+	return combined
+}
+
+func TestRunInjectsEnvSecrets(t *testing.T) {
+	secrets := map[string]vault.SecretInfo{
+		"db-secret": {Data: map[string]string{"value": "postgres://localhost"}},
+	}
+	envMap := map[string]string{
+		"DB_URL": "db-secret",
+	}
+
+	combined := buildCombinedEnvFromManifestEnv(envMap, secrets)
 
 	if !slices.Contains(combined, "DB_URL=postgres://localhost") {
 		t.Error("expected DB_URL to be injected into env")
 	}
 }
 
-// buildCombinedEnv replicates the env-assembly logic from run.go for unit testing.
-func buildCombinedEnv(secrets map[string]vault.SecretInfo) []string {
-	var combined []string
-	for k, info := range secrets {
-		switch info.Type {
-		case vault.SecretTypeEnvironment:
-			combined = append(combined, k+"="+info.Value)
-		case vault.SecretTypeMap:
-			continue
-		}
+func TestRunDoesNotInjectUnmappedSecrets(t *testing.T) {
+	secrets := map[string]vault.SecretInfo{
+		"cfg-secret": {Data: map[string]string{"host": "localhost", "port": "5432"}},
 	}
-	return combined
+	// cfg-secret is not wired in the manifest env map
+	envMap := map[string]string{}
+
+	combined := buildCombinedEnvFromManifestEnv(envMap, secrets)
+
+	for _, entry := range combined {
+		_ = entry
+		// nothing should appear
+	}
+	if len(combined) != 0 {
+		t.Errorf("expected empty combined env, got: %v", combined)
+	}
 }

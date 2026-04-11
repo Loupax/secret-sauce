@@ -25,9 +25,9 @@ var editCmd = &cobra.Command{
 		}
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		secretType := vault.SecretType(args[0])
-		if !vault.ValidSecretType(secretType) {
-			return fmt.Errorf("type must be 'environment' or 'file'; got %q", args[0])
+		subtype := args[0]
+		if subtype != "environment" && subtype != "file" && subtype != "map" {
+			return fmt.Errorf("type must be 'environment', 'file', or 'map'; got %q", args[0])
 		}
 		key := args[1]
 
@@ -43,7 +43,7 @@ var editCmd = &cobra.Command{
 			return fmt.Errorf("read secret: %w", err)
 		}
 		if err == nil {
-			currentValue = info.Value
+			currentValue = info.Data["value"]
 		}
 
 		// Create a temp file for the editor.
@@ -94,7 +94,7 @@ var editCmd = &cobra.Command{
 		}
 
 		// Persist the updated value.
-		if err := svc.WriteSecret(vaultDir, key, string(contents), secretType); err != nil {
+		if err := svc.WriteSecret(vaultDir, key, map[string]string{"value": string(contents)}); err != nil {
 			return fmt.Errorf("write secret: %w", err)
 		}
 

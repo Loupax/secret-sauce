@@ -4,6 +4,16 @@ All notable changes to this project will be documented here.
 
 ---
 
+## [Unreleased]
+
+### Breaking Changes
+
+- `.age` envelope format: `Type` field removed; `Value` (string) replaced by `Data` (map). Existing vaults must be re-imported.
+- `sauce run` now requires a `sauce.toml` manifest file in the working directory. Running without it is a fatal error.
+- `sauce set` no longer infers injection behavior from type — type argument is now UI-only.
+
+---
+
 ## [Unreleased — 1password-import]
 
 ### Added

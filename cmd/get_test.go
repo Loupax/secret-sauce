@@ -25,9 +25,9 @@ func captureGet(args []string) (string, error) {
 	return string(out), err
 }
 
-func TestGetMap_NoKey_PrintsFullValue(t *testing.T) {
+func TestGetMap_NoKey_PrintsAllData(t *testing.T) {
 	secrets := map[string]vault.SecretInfo{
-		"CFG": {Type: vault.SecretTypeMap, Value: `{"host":"localhost"}`},
+		"CFG": {Data: map[string]string{"host": "localhost", "port": "5432"}},
 	}
 	defer withStub(newStub(secrets))()
 
@@ -35,14 +35,14 @@ func TestGetMap_NoKey_PrintsFullValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(out, `{"host":"localhost"}`) {
-		t.Errorf("expected full JSON value in output, got: %q", out)
+	if !strings.Contains(out, "host=localhost") {
+		t.Errorf("expected host=localhost in output, got: %q", out)
 	}
 }
 
 func TestGetMap_WithKey_PrintsRawValueNoNewline(t *testing.T) {
 	secrets := map[string]vault.SecretInfo{
-		"CFG": {Type: vault.SecretTypeMap, Value: `{"host":"localhost","port":"5432"}`},
+		"CFG": {Data: map[string]string{"host": "localhost", "port": "5432"}},
 	}
 	defer withStub(newStub(secrets))()
 
@@ -57,7 +57,7 @@ func TestGetMap_WithKey_PrintsRawValueNoNewline(t *testing.T) {
 
 func TestGetMap_MissingKey_Error(t *testing.T) {
 	secrets := map[string]vault.SecretInfo{
-		"CFG": {Type: vault.SecretTypeMap, Value: `{"host":"localhost"}`},
+		"CFG": {Data: map[string]string{"host": "localhost"}},
 	}
 	defer withStub(newStub(secrets))()
 
@@ -72,7 +72,7 @@ func TestGetMap_MissingKey_Error(t *testing.T) {
 
 func TestGetEnvironment_NoKey_PrintsValue(t *testing.T) {
 	secrets := map[string]vault.SecretInfo{
-		"DB_URL": {Type: vault.SecretTypeEnvironment, Value: "postgres://localhost"},
+		"DB_URL": {Data: map[string]string{"value": "postgres://localhost"}},
 	}
 	defer withStub(newStub(secrets))()
 
@@ -87,7 +87,7 @@ func TestGetEnvironment_NoKey_PrintsValue(t *testing.T) {
 
 func TestGetFile_NoKey_PrintsValue(t *testing.T) {
 	secrets := map[string]vault.SecretInfo{
-		"MY_CERT": {Type: vault.SecretTypeFile, Value: "cert-contents"},
+		"MY_CERT": {Data: map[string]string{"value": "cert-contents"}},
 	}
 	defer withStub(newStub(secrets))()
 
@@ -97,21 +97,6 @@ func TestGetFile_NoKey_PrintsValue(t *testing.T) {
 	}
 	if !strings.Contains(out, "cert-contents") {
 		t.Errorf("expected value in output, got: %q", out)
-	}
-}
-
-func TestGetNonMap_WithKey_Error(t *testing.T) {
-	secrets := map[string]vault.SecretInfo{
-		"DB_URL": {Type: vault.SecretTypeEnvironment, Value: "postgres://localhost"},
-	}
-	defer withStub(newStub(secrets))()
-
-	_, err := captureGet([]string{"DB_URL", "somekey"})
-	if err == nil {
-		t.Error("expected error when using key arg on non-map secret, got nil")
-	}
-	if !strings.Contains(err.Error(), "not of type 'map'") {
-		t.Errorf("expected 'not of type map' in error, got: %v", err)
 	}
 }
 

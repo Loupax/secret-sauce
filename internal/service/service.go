@@ -7,7 +7,7 @@ import "github.com/loupax/secret-sauce/internal/vault"
 type VaultService interface {
 	ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error)
 	ReadSecret(vaultDir, key string) (vault.SecretInfo, error)
-	WriteSecret(vaultDir, key, value string, secretType vault.SecretType) error
+	WriteSecret(vaultDir, key string, data map[string]string) error
 	DeleteSecret(vaultDir, key string) error
 	GetPublicKey(vaultDir string) (string, error)
 }

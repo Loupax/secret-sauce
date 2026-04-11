@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/loupax/secret-sauce/internal/vault"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -14,12 +13,19 @@ import (
 var interactive bool
 
 var setCmd = &cobra.Command{
-	Use:   "set <type> <key> <value>",
+	Use:   "set <type> <key> [value | k=v ...]",
 	Short: "Set a secret",
 	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 && vault.SecretType(args[0]) == vault.SecretTypeMap && interactive {
+		if len(args) > 0 && args[0] == "map" && interactive {
 			if len(args) != 2 {
 				return fmt.Errorf("interactive map set accepts 2 arg(s), received %d", len(args))
+			}
+			return nil
+		}
+		if args[0] == "map" {
+			// map type: type + key + one or more k=v pairs
+			if len(args) < 3 {
+				return fmt.Errorf("map set requires at least 3 args (type key k=v ...), received %d", len(args))
 			}
 			return nil
 		}
@@ -39,17 +45,18 @@ var setCmd = &cobra.Command{
 		}
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		secretType := vault.SecretType(args[0])
-		if !vault.ValidSecretType(secretType) {
-			return fmt.Errorf("type must be 'environment', 'file', or 'map'; got %q", args[0])
+		subtype := args[0]
+		if subtype != "environment" && subtype != "file" && subtype != "map" {
+			return fmt.Errorf("type must be 'environment', 'file', or 'map'; got %q", subtype)
 		}
 		key := args[1]
 
-		var value string
+		var data map[string]string
 
-		if secretType == vault.SecretTypeMap {
+		switch subtype {
+		case "map":
 			if interactive {
-				m := make(map[string]string)
+				data = make(map[string]string)
 				reader := bufio.NewReader(os.Stdin)
 				for {
 					fmt.Fprint(os.Stderr, "key (empty to finish): ")
@@ -57,10 +64,7 @@ var setCmd = &cobra.Command{
 					if err != nil {
 						return fmt.Errorf("read key: %w", err)
 					}
-					k = k[:len(k)-1]
-					if len(k) > 0 && k[len(k)-1] == '\r' {
-						k = k[:len(k)-1]
-					}
+					k = strings.TrimRight(k, "\r\n")
 					if k == "" {
 						break
 					}
@@ -70,25 +74,22 @@ var setCmd = &cobra.Command{
 						return fmt.Errorf("read value: %w", err)
 					}
 					fmt.Fprintln(os.Stderr)
-					m[k] = string(v)
+					data[k] = string(v)
 				}
-				b, _ := json.Marshal(m)
-				value = string(b)
 			} else {
-				var raw map[string]interface{}
-				if err := json.Unmarshal([]byte(args[2]), &raw); err != nil {
-					return fmt.Errorf("invalid JSON: %w", err)
-				}
-				for k, v := range raw {
-					if _, ok := v.(string); !ok {
-						return fmt.Errorf("map values must be strings; key %q has a non-string value", k)
+				// args[2:] are k=v pairs
+				data = make(map[string]string, len(args)-2)
+				for _, pair := range args[2:] {
+					idx := strings.IndexByte(pair, '=')
+					if idx < 0 {
+						return fmt.Errorf("invalid key=value pair %q: missing '='", pair)
 					}
+					data[pair[:idx]] = pair[idx+1:]
 				}
-				b, _ := json.Marshal(raw)
-				value = string(b)
 			}
-		} else {
-			value = args[2]
+
+		default: // environment or file
+			data = map[string]string{"value": args[2]}
 		}
 
 		svc, err := resolveService()
@@ -96,7 +97,7 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("resolve service: %w", err)
 		}
 
-		if err := svc.WriteSecret(vaultDir, key, value, secretType); err != nil {
+		if err := svc.WriteSecret(vaultDir, key, data); err != nil {
 			return fmt.Errorf("failed to write secret: %w", err)
 		}
 
