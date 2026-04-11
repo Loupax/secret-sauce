@@ -60,6 +60,9 @@ var runCmd = &cobra.Command{
 			nameSet[secretRef(ref).name()] = struct{}{}
 		}
 
+		// TODO: fetch secrets concurrently (errgroup) if local-path latency
+		// becomes measurable in practice. Daemon path already uses a concurrent
+		// index so this only affects no-daemon runs with large sauce.toml files.
 		// Fetch each unique secret once.
 		fetched := make(map[string]map[string]string, len(nameSet))
 		for name := range nameSet {
