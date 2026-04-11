@@ -29,7 +29,7 @@ var lsCmd = &cobra.Command{
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(os.Stdout, "%s\t%s\n", secrets[k].Type, k)
+			fmt.Fprintf(os.Stdout, "%s\n", k)
 		}
 
 		return nil

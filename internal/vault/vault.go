@@ -16,8 +16,7 @@ var ErrKeyNotFound = errors.New("key not found")
 
 // SecretInfo is the decrypted representation returned to callers of ReadSecret / ReadAllSecrets.
 type SecretInfo struct {
-	Type  SecretType
-	Value string
+	Data map[string]string
 }
 
 func validateKey(key string) error {
@@ -99,17 +98,19 @@ func encryptToFile(destPath string, envelope SecretEnvelope, recipients []age.Re
 	return nil
 }
 
-// WriteSecret writes key=value as a JSON envelope into a UUID-named .age file.
+// WriteSecret writes key=data as a JSON envelope into a UUID-named .age file.
 // If a file with the same envelope.Name already exists (found by decrypting
 // with identity), it is overwritten in-place (same UUID filename). Otherwise a
-// new UUID is generated.
-func WriteSecret(vaultDir, key, value string, secretType SecretType, recipients []age.Recipient, identity age.Identity) error {
+// new UUID is generated. The data map replaces the existing data entirely — no
+// implicit merging occurs.
+func WriteSecret(vaultDir, key string, data map[string]string, recipients []age.Recipient, identity age.Identity) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
 
 	// Search for an existing .age file whose envelope.Name matches key.
 	existingPath := ""
+	existingTags := []string{}
 	if identity != nil {
 		pattern := filepath.Join(vaultDir, "*.age")
 		files, err := filepath.Glob(pattern)
@@ -123,6 +124,7 @@ func WriteSecret(vaultDir, key, value string, secretType SecretType, recipients 
 			}
 			if env.Name == key {
 				existingPath = f
+				existingTags = env.Tags
 				break
 			}
 		}
@@ -137,10 +139,9 @@ func WriteSecret(vaultDir, key, value string, secretType SecretType, recipients 
 	}
 
 	envelope := SecretEnvelope{
-		Type:  secretType,
-		Name:  key,
-		Value: value,
-		Tags:  []string{},
+		Name: key,
+		Data: data,
+		Tags: existingTags,
 	}
 
 	return encryptToFile(destPath, envelope, recipients)
@@ -162,7 +163,7 @@ func ReadSecret(vaultDir, key string, identity age.Identity) (SecretInfo, error)
 			continue // skip corrupt/unreadable files
 		}
 		if env.Name == key {
-			return SecretInfo{Type: env.Type, Value: env.Value}, nil
+			return SecretInfo{Data: env.Data}, nil
 		}
 	}
 	return SecretInfo{}, ErrKeyNotFound
@@ -186,7 +187,7 @@ func ReadAllSecrets(vaultDir string, identity age.Identity) (map[string]SecretIn
 				return fmt.Errorf("decrypt %s: %w", filepath.Base(match), err)
 			}
 			mu.Lock()
-			result[env.Name] = SecretInfo{Type: env.Type, Value: env.Value}
+			result[env.Name] = SecretInfo{Data: env.Data}
 			mu.Unlock()
 			return nil
 		})
