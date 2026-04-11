@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/loupax/secret-sauce/internal/manifest"
 	"github.com/pelletier/go-toml/v2"
@@ -50,12 +51,13 @@ var runCmd = &cobra.Command{
 		}
 
 		// Collect unique secret names referenced by the manifest.
+		// RHS format: "secret_name" (uses Data["value"]) or "secret_name.field" (uses Data["field"]).
 		nameSet := make(map[string]struct{})
-		for _, secretName := range mf.Env {
-			nameSet[secretName] = struct{}{}
+		for _, ref := range mf.Env {
+			nameSet[secretRef(ref).name()] = struct{}{}
 		}
-		for _, secretName := range mf.File {
-			nameSet[secretName] = struct{}{}
+		for _, ref := range mf.File {
+			nameSet[secretRef(ref).name()] = struct{}{}
 		}
 
 		// Fetch each unique secret once.
@@ -78,37 +80,47 @@ var runCmd = &cobra.Command{
 		combined := os.Environ()
 
 		// Inject env secrets.
-		for envVar, secretName := range mf.Env {
-			d, ok := fetched[secretName]
+		for envVar, ref := range mf.Env {
+			r := secretRef(ref)
+			d, ok := fetched[r.name()]
 			if !ok {
-				return fmt.Errorf("secret %q not found for env var %q", secretName, envVar)
+				return fmt.Errorf("secret %q not found for env var %q", r.name(), envVar)
 			}
-			combined = append(combined, envVar+"="+d["value"])
+			val, ok := d[r.field()]
+			if !ok {
+				return fmt.Errorf("secret %q has no field %q", r.name(), r.field())
+			}
+			combined = append(combined, envVar+"="+val)
 		}
 
 		// Inject file secrets.
-		for envVar, secretName := range mf.File {
-			d, ok := fetched[secretName]
+		for envVar, ref := range mf.File {
+			r := secretRef(ref)
+			d, ok := fetched[r.name()]
 			if !ok {
-				return fmt.Errorf("secret %q not found for file var %q", secretName, envVar)
+				return fmt.Errorf("secret %q not found for file var %q", r.name(), envVar)
+			}
+			val, ok := d[r.field()]
+			if !ok {
+				return fmt.Errorf("secret %q has no field %q", r.name(), r.field())
 			}
 
 			tmpFile, err := os.CreateTemp("", "secret-sauce-*")
 			if err != nil {
-				return fmt.Errorf("create temp file for secret %q: %w", secretName, err)
+				return fmt.Errorf("create temp file for secret %q: %w", r.name(), err)
 			}
 			extraFiles = append(extraFiles, tmpFile)
 
 			if err := os.Remove(tmpFile.Name()); err != nil {
-				return fmt.Errorf("unlink temp file for secret %q: %w", secretName, err)
+				return fmt.Errorf("unlink temp file for secret %q: %w", r.name(), err)
 			}
 
-			if _, err := fmt.Fprint(tmpFile, d["value"]); err != nil {
-				return fmt.Errorf("write temp file for secret %q: %w", secretName, err)
+			if _, err := fmt.Fprint(tmpFile, val); err != nil {
+				return fmt.Errorf("write temp file for secret %q: %w", r.name(), err)
 			}
 
 			if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
-				return fmt.Errorf("seek temp file for secret %q: %w", secretName, err)
+				return fmt.Errorf("seek temp file for secret %q: %w", r.name(), err)
 			}
 
 			fdIndex := 3 + len(extraFiles) - 1
@@ -134,4 +146,25 @@ var runCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// secretRef parses a sauce.toml RHS value.
+// "secret_name"       → name=secret_name, field=value
+// "secret_name.field" → name=secret_name, field=field
+type secretRef string
+
+func (r secretRef) name() string {
+	s := string(r)
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+func (r secretRef) field() string {
+	s := string(r)
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		return s[i+1:]
+	}
+	return "value"
 }
