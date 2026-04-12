@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net"
 	"os"
-	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/loupax/secret-sauce/internal/config"
