@@ -14,6 +14,14 @@ func newStub(secrets map[string]vault.SecretInfo) *stubVaultService {
 	return &stubVaultService{secrets: secrets}
 }
 
+func (s *stubVaultService) ListSecretNames(_ string) ([]string, error) {
+	names := make([]string, 0, len(s.secrets))
+	for name := range s.secrets {
+		names = append(names, name)
+	}
+	return names, nil
+}
+
 func (s *stubVaultService) ReadAllSecrets(_ string) (map[string]vault.SecretInfo, error) {
 	return s.secrets, nil
 }

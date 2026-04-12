@@ -45,6 +45,17 @@ func (s *IPCVaultService) roundTrip(req ipc.Request) (ipc.Response, error) {
 	return resp, nil
 }
 
+func (s *IPCVaultService) ListSecretNames(vaultDir string) ([]string, error) {
+	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpListNames, VaultDir: vaultDir})
+	if err != nil {
+		return nil, err
+	}
+	if !resp.OK {
+		return nil, fmt.Errorf("daemon error: %s", resp.Error)
+	}
+	return resp.Names, nil
+}
+
 func (s *IPCVaultService) ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error) {
 	resp, err := s.roundTrip(ipc.Request{Op: ipc.OpReadAll, VaultDir: vaultDir})
 	if err != nil {
