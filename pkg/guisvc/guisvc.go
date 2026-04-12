@@ -83,6 +83,7 @@ func pingSocket(path string) bool {
 		return false
 	}
 	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(500 * time.Millisecond))
 
 	if err := json.NewEncoder(conn).Encode(ipc.Request{Op: ipc.OpPing}); err != nil {
 		return false

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 
 	"filippo.io/age"
 	"github.com/loupax/secret-sauce/internal/keyring"
@@ -22,6 +23,19 @@ func (s *LocalVaultService) loadIdentity(vaultDir string) (age.Identity, error) 
 		return nil, fmt.Errorf("parse identity: %w", err)
 	}
 	return identity, nil
+}
+
+func (s *LocalVaultService) ListSecretNames(vaultDir string) ([]string, error) {
+	all, err := s.ReadAllSecrets(vaultDir)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(all))
+	for name := range all {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 func (s *LocalVaultService) ReadAllSecrets(vaultDir string) (map[string]vault.SecretInfo, error) {

@@ -65,6 +65,19 @@ func (a *App) GetVaultDir() string {
 	return a.vaultDir
 }
 
+// ListSecretNames returns all secret names sorted alphabetically.
+// Values are not decrypted — call GetSecret for a specific secret.
+func (a *App) ListSecretNames() ([]string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if err := a.ready(); err != nil {
+		return nil, err
+	}
+
+	return a.svc.ListSecretNames(a.vaultDir)
+}
+
 // ListSecrets returns all secrets sorted by name.
 func (a *App) ListSecrets() ([]SecretEntry, error) {
 	a.mu.Lock()

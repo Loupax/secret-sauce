@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -131,7 +132,7 @@ func (s *Server) refreshIndexIfStale(vaultDir string) error {
 			}
 			uuidName := strings.TrimSuffix(filepath.Base(f), ".age")
 			mu.Lock()
-			newEntries[env.Name] = IndexEntry{UUID: uuidName, Envelope: env}
+			newEntries[env.Name] = IndexEntry{UUID: uuidName}
 			mu.Unlock()
 			return nil
 		})
@@ -163,16 +164,30 @@ func (s *Server) handleConn(conn net.Conn) {
 	case ipc.OpPing:
 		resp = ipc.Response{OK: true}
 
-	case ipc.OpReadAll:
+	case ipc.OpListNames:
 		if err := s.refreshIndexIfStale(req.VaultDir); err != nil {
 			resp = ipc.Response{OK: false, Error: err.Error()}
 		} else {
 			s.index.mu.RLock()
-			secrets := make(map[string]ipc.SecretMeta, len(s.index.entries))
-			for name, entry := range s.index.entries {
-				secrets[name] = ipc.SecretMeta{Data: entry.Envelope.Data}
+			names := make([]string, 0, len(s.index.entries))
+			for name := range s.index.entries {
+				names = append(names, name)
 			}
 			s.index.mu.RUnlock()
+			sort.Strings(names)
+			resp = ipc.Response{OK: true, Names: names}
+		}
+
+	case ipc.OpReadAll:
+		// Decrypt all files on demand — values are never cached in the index.
+		all, err := s.svc.ReadAllSecrets(req.VaultDir)
+		if err != nil {
+			resp = ipc.Response{OK: false, Error: err.Error()}
+		} else {
+			secrets := make(map[string]ipc.SecretMeta, len(all))
+			for k, info := range all {
+				secrets[k] = ipc.SecretMeta{Data: info.Data}
+			}
 			resp = ipc.Response{OK: true, Secrets: secrets}
 		}
 
@@ -186,8 +201,12 @@ func (s *Server) handleConn(conn net.Conn) {
 			if !found {
 				resp = ipc.Response{OK: false, Error: vault.ErrKeyNotFound.Error()}
 			} else {
-				meta := ipc.SecretMeta{Data: entry.Envelope.Data}
-				resp = ipc.Response{OK: true, Secret: &meta}
+				env, err := s.decryptFile(req.VaultDir, entry.UUID)
+				if err != nil {
+					resp = ipc.Response{OK: false, Error: err.Error()}
+				} else {
+					resp = ipc.Response{OK: true, Secret: &ipc.SecretMeta{Data: env.Data}}
+				}
 			}
 		}
 
@@ -249,6 +268,21 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	json.NewEncoder(conn).Encode(resp)
+}
+
+// decryptFile loads the age identity from the keyring and decrypts a single
+// .age file by its UUID, returning the secret envelope. Values are never stored
+// in the index — call this for on-demand reads only.
+func (s *Server) decryptFile(vaultDir, uuid string) (vault.SecretEnvelope, error) {
+	keyStr, err := keyring.Load(vaultDir)
+	if err != nil {
+		return vault.SecretEnvelope{}, err
+	}
+	identity, err := age.ParseX25519Identity(keyStr)
+	if err != nil {
+		return vault.SecretEnvelope{}, fmt.Errorf("parse identity: %w", err)
+	}
+	return vault.DecryptEnvelope(filepath.Join(vaultDir, uuid+".age"), identity)
 }
 
 func (s *Server) resetIdleTimer() {

@@ -3,20 +3,18 @@ package daemon
 import (
 	"sync"
 	"time"
-
-	"github.com/loupax/secret-sauce/internal/vault"
 )
 
-// IndexEntry holds a decrypted secret and the UUID filename that contains it.
+// IndexEntry maps a secret name to its UUID filename on disk.
+// Values are intentionally NOT cached — decrypted on demand per request.
 type IndexEntry struct {
-	UUID     string               // UUID only, no .age suffix
-	Envelope vault.SecretEnvelope
+	UUID string // UUID only, no .age suffix
 }
 
-// VaultIndex is the daemon's in-memory cache of all decrypted secrets.
+// VaultIndex is the daemon's in-memory name→UUID mapping.
 type VaultIndex struct {
 	mu         sync.RWMutex
-	entries    map[string]IndexEntry // name → entry
+	entries    map[string]IndexEntry // name → UUID
 	dirModTime time.Time
 }
 

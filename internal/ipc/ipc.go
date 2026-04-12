@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	OpListNames = "list_names"
 	OpReadAll   = "read_all"
 	OpWrite     = "write"
 	OpDelete    = "delete"
@@ -29,6 +30,7 @@ type Request struct {
 
 type Response struct {
 	OK      bool                  `json:"ok"`
+	Names   []string              `json:"names,omitempty"`
 	Secrets map[string]SecretMeta `json:"secrets,omitempty"`
 	Secret  *SecretMeta           `json:"secret,omitempty"`
 	PubKey  string                `json:"pub_key,omitempty"`
