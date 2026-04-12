@@ -32,6 +32,8 @@
   let editingName = null; // null = create mode, string = edit mode
   let createName = '';
   let createFields = [{ key: 'value', value: '' }];
+  let createFieldRevealed = {}; // index → bool, show/hide per value field
+  let showAllCreate = false;
   let createError = '';
   let creating = false;
 
@@ -111,6 +113,8 @@
     editingName = null;
     createName = '';
     createFields = [{ key: 'value', value: '' }];
+    createFieldRevealed = {};
+    showAllCreate = false;
     createError = '';
     showCreate = true;
     showMenu = false;
@@ -137,6 +141,8 @@
     createName = name;
     createFields = Object.entries(secretData[name]).map(([key, value]) => ({ key, value }));
     if (createFields.length === 0) createFields = [{ key: 'value', value: '' }];
+    createFieldRevealed = {};
+    showAllCreate = false;
     createError = '';
     showCreate = true;
   }
@@ -144,10 +150,24 @@
   function closeCreate() {
     showCreate = false;
     editingName = null;
+    createFieldRevealed = {};
+    showAllCreate = false;
   }
 
   function addField() {
     createFields = [...createFields, { key: '', value: '' }];
+    if (showAllCreate) {
+      createFieldRevealed[createFields.length - 1] = true;
+      createFieldRevealed = createFieldRevealed;
+    }
+  }
+
+  function toggleAllCreate() {
+    showAllCreate = !showAllCreate;
+    createFields.forEach((_, i) => {
+      createFieldRevealed[i] = showAllCreate;
+    });
+    createFieldRevealed = createFieldRevealed;
   }
 
   function removeField(i) {
@@ -353,7 +373,13 @@
         <div class="fields-section">
           <div class="fields-header">
             <span>Fields</span>
-            <button class="add-field-btn" on:click={addField}>+ Add field</button>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <label class="show-all-label">
+                <input type="checkbox" checked={showAllCreate} on:change={toggleAllCreate} />
+                Show values
+              </label>
+              <button class="add-field-btn" on:click={addField}>+ Add field</button>
+            </div>
           </div>
           {#each createFields as field, i (i)}
             <div class="create-field-row">
@@ -365,11 +391,15 @@
               />
               <input
                 class="modal-input val-input"
-                type="password"
-                bind:value={field.value}
+                type={createFieldRevealed[i] ? 'text' : 'password'}
+                value={field.value}
+                on:input={(e) => field.value = e.target.value}
                 placeholder="value"
                 autocomplete="new-password"
               />
+              <button class="reveal-field-btn" on:click={() => { createFieldRevealed[i] = !createFieldRevealed[i]; createFieldRevealed = createFieldRevealed; }} title={createFieldRevealed[i] ? 'Hide' : 'Show'}>
+                {createFieldRevealed[i] ? '🙈' : '👁'}
+              </button>
               {#if createFields.length > 1}
                 <button class="remove-field-btn" on:click={() => removeField(i)}>✕</button>
               {/if}
@@ -921,6 +951,42 @@
   }
 
   .remove-field-btn:hover { background: #3a1a1a; color: #ff6b6b; }
+
+  .reveal-field-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.1rem;
+    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .reveal-field-btn:hover { background: #2a2a2a; color: #ccc; }
+
+  .show-all-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .show-all-label input {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .show-all-label:hover { color: #888; }
 
   .modal-error {
     font-size: 0.82rem;
