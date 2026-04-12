@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -47,6 +48,13 @@ func (a *App) startup(ctx context.Context) {
 	a.svc = svc
 }
 
+func (a *App) ready() error {
+	if a.svc == nil || a.vaultDir == "" {
+		return fmt.Errorf("vault service not ready — keychain may be locked or vault not initialized")
+	}
+	return nil
+}
+
 // VaultExists reports whether the vault directory has been initialized.
 func (a *App) VaultExists() bool {
 	return guisvc.Exists(a.vaultDir)
@@ -57,13 +65,13 @@ func (a *App) GetVaultDir() string {
 	return a.vaultDir
 }
 
-// ListSecrets returns all secrets (name + data map) from the vault.
+// ListSecrets returns all secrets sorted by name.
 func (a *App) ListSecrets() ([]SecretEntry, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.svc == nil {
-		return nil, fmt.Errorf("vault service not ready — restart the app")
+	if err := a.ready(); err != nil {
+		return nil, err
 	}
 
 	all, err := a.svc.ReadAllSecrets(a.vaultDir)
@@ -77,6 +85,9 @@ func (a *App) ListSecrets() ([]SecretEntry, error) {
 		}
 		entries = append(entries, SecretEntry{Name: name, Data: info.Data})
 	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
 	return entries, nil
 }
 
@@ -84,6 +95,10 @@ func (a *App) ListSecrets() ([]SecretEntry, error) {
 func (a *App) GetSecret(key string) (SecretEntry, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	if err := a.ready(); err != nil {
+		return SecretEntry{}, err
+	}
 
 	info, err := a.svc.ReadSecret(a.vaultDir, key)
 	if err != nil {
@@ -97,6 +112,10 @@ func (a *App) SetSecret(key string, data map[string]string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	if err := a.ready(); err != nil {
+		return err
+	}
+
 	if err := a.svc.WriteSecret(a.vaultDir, key, data); err != nil {
 		return fmt.Errorf("set secret %q: %w", key, err)
 	}
@@ -107,6 +126,10 @@ func (a *App) SetSecret(key string, data map[string]string) error {
 func (a *App) DeleteSecret(key string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	if err := a.ready(); err != nil {
+		return err
+	}
 
 	if err := a.svc.DeleteSecret(a.vaultDir, key); err != nil {
 		return fmt.Errorf("delete secret %q: %w", key, err)
