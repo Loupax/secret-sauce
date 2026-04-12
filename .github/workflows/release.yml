@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - release-pipeline
+      - main
     tags:
       - 'v*'
 
@@ -81,6 +81,9 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'nightly' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Nightly Build' }}
+          prerelease: ${{ github.ref_type != 'tag' }}
           files: |
             secret-sauce-${{ matrix.platform }}.zip
             secret-sauce-${{ matrix.platform }}.tar.gz
