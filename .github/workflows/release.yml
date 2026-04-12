@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: gui/frontend/package-lock.json
+
+      - name: Install Dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Build CLI
+        run: |
+          mkdir -p build
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            go build -o build/sauce.exe ./cmd/sauce
+          else
+            go build -o build/sauce ./cmd/sauce
+          fi
+        shell: bash
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Build GUI
+        run: |
+          cd gui
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            wails build -tags webkit2_41 -o sauce-gui
+          else
+            wails build -o sauce-gui.exe
+          fi
+        shell: bash
+
+      - name: Package Assets
+        run: |
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            mv gui/build/bin/sauce-gui.exe build/
+            cd build && powershell -Command "Compress-Archive -Path * -DestinationPath ../secret-sauce-${{ matrix.platform }}.zip"
+          else
+            mv gui/build/bin/sauce-gui build/
+            cd build && tar -czf ../secret-sauce-${{ matrix.platform }}.tar.gz .
+          fi
+        shell: bash
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'nightly' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Nightly Build' }}
+          prerelease: ${{ github.ref_type != 'tag' }}
+          files: |
+            secret-sauce-${{ matrix.platform }}.zip
+            secret-sauce-${{ matrix.platform }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

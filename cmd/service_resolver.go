@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net"
 	"os"
-	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/loupax/secret-sauce/internal/config"
@@ -60,15 +58,6 @@ func isSocketAlive(socketPath string) bool {
 		return false
 	}
 	return resp.OK
-}
-
-func spawnDaemon(timeout time.Duration) error {
-	c := exec.Command(os.Args[0], "daemon", "_serve", "--timeout", timeout.String())
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	c.Stdin = nil
-	c.Stdout = nil
-	c.Stderr = nil
-	return c.Start()
 }
 
 func waitForSocket(socketPath string, timeout time.Duration) bool {
