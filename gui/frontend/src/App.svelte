@@ -223,13 +223,18 @@
       <img src={logo} alt="Secret Sauce" class="header-logo" />
       <h1>Secret Sauce</h1>
 
-      <input
-        class="search"
-        bind:value={query}
-        placeholder="Search secrets…"
-        autocomplete="off"
-        spellcheck="false"
-      />
+      <div class="search-wrap">
+        <input
+          class="search"
+          bind:value={query}
+          placeholder="Search secrets…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        {#if query}
+          <button class="clear-search" on:click={() => query = ''} title="Clear search">✕</button>
+        {/if}
+      </div>
 
       <!-- "+" action menu -->
       <div class="menu-wrap">
@@ -332,11 +337,7 @@
               <pre>sauce delete &lt;name&gt;</pre>
               <p>Permanently remove a secret and all its fields.</p>
             </div>
-            <div class="doc-card">
-              <h3>Export as env vars</h3>
-              <pre>sauce export &lt;name&gt;</pre>
-              <p>Print all fields as <code>KEY=VALUE</code> lines, ready to source.</p>
-            </div>
+
             <div class="doc-card">
               <h3>Background daemon</h3>
               <pre>sauce daemon start</pre>
@@ -498,22 +499,49 @@
     flex-shrink: 0;
   }
 
-  .search {
+  .search-wrap {
     flex: 1;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    color: #f0f0f0;
-    padding: 0.4rem 0.85rem;
-    border-radius: 6px;
-    font-size: 0.92rem;
+    position: relative;
+    display: flex;
+    align-items: center;
     min-width: 0;
   }
 
+  .search {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #f0f0f0;
+    padding: 0.4rem 2rem 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    box-sizing: border-box;
+  }
+
   .search:focus { outline: none; border-color: #e85d04; }
-  .search::placeholder { color: #555; }
+  .search::placeholder { color: #888; }
+
+  .clear-search {
+    position: absolute;
+    right: 0.4rem;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .clear-search:hover { color: #fff; background: #333; }
 
   /* "+" menu */
   .menu-wrap { position: relative; flex-shrink: 0; }
+
 
   .add-btn {
     background: #e85d04;
@@ -633,7 +661,7 @@
     gap: 0.45rem;
   }
 
-  .no-match { color: #555; font-style: italic; font-size: 0.9rem; }
+  .no-match { color: #aaa; font-style: italic; font-size: 0.9rem; }
 
   .secret-card {
     background: #1a1a1a;
@@ -663,11 +691,11 @@
     flex: 1;
   }
 
-  .chevron { color: #555; font-size: 0.65rem; }
+  .chevron { color: #888; font-size: 0.65rem; }
 
   .loading {
     padding: 0.5rem 1rem;
-    color: #555;
+    color: #aaa;
     font-style: italic;
     font-size: 0.83rem;
   }
@@ -685,7 +713,7 @@
   .field-key {
     min-width: 80px;
     font-size: 0.76rem;
-    color: #777;
+    color: #aaa;
     text-transform: lowercase;
     letter-spacing: 0.03em;
   }
@@ -736,13 +764,14 @@
   }
 
   .welcome-logo {
-    width: 64px;
-    opacity: 0.35;
-    margin-bottom: 1rem;
+    width: 80px;
+    opacity: 1;
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 4px 12px rgba(232, 93, 4, 0.3));
   }
 
   .tagline {
-    color: #555;
+    color: #aaa;
     font-size: 0.9rem;
     margin: 0 0 2.5rem;
     text-align: center;
@@ -767,8 +796,8 @@
   }
 
   .doc-card {
-    background: #161616;
-    border: 1px solid #252525;
+    background: #1c1c1c;
+    border: 1px solid #333;
     border-radius: 8px;
     padding: 1rem 1.1rem;
   }
@@ -776,7 +805,7 @@
   .doc-card h3 {
     margin: 0 0 0.45rem;
     font-size: 0.82rem;
-    color: #888;
+    color: #ccc;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -784,12 +813,12 @@
 
   .doc-card pre {
     margin: 0 0 0.5rem;
-    background: #0e0e0e;
-    border: 1px solid #222;
+    background: #121212;
+    border: 1px solid #2a2a2a;
     border-radius: 4px;
     padding: 0.4rem 0.65rem;
     font-size: 0.82rem;
-    color: #e85d04;
+    color: #f97316;
     font-family: monospace;
     overflow-x: auto;
     white-space: pre;
@@ -798,7 +827,7 @@
   .doc-card p {
     margin: 0;
     font-size: 0.8rem;
-    color: #555;
+    color: #aaa;
     line-height: 1.5;
   }
 
@@ -869,21 +898,21 @@
   .close-btn {
     background: none;
     border: none;
-    color: #666;
+    color: #999;
     font-size: 1rem;
     cursor: pointer;
     padding: 0.1rem 0.3rem;
     border-radius: 3px;
   }
 
-  .close-btn:hover { background: #2a2a2a; color: #ccc; }
+  .close-btn:hover { background: #2a2a2a; color: #fff; }
 
   .field-label {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
     font-size: 0.8rem;
-    color: #777;
+    color: #bbb;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 1.1rem;
@@ -901,7 +930,7 @@
   }
 
   .modal-input:focus { outline: none; border-color: #e85d04; }
-  .readonly-input { color: #666; cursor: default; }
+  .readonly-input { color: #888; cursor: default; }
   .readonly-input:focus { border-color: #333; }
 
   .fields-section { margin-bottom: 1rem; }
@@ -911,7 +940,7 @@
     align-items: center;
     justify-content: space-between;
     font-size: 0.8rem;
-    color: #777;
+    color: #bbb;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 0.5rem;
@@ -919,15 +948,15 @@
 
   .add-field-btn {
     background: none;
-    border: 1px solid #333;
-    color: #888;
+    border: 1px solid #444;
+    color: #ccc;
     font-size: 0.78rem;
     padding: 0.2rem 0.55rem;
     border-radius: 4px;
     cursor: pointer;
   }
 
-  .add-field-btn:hover { background: #2a2a2a; color: #ccc; border-color: #444; }
+  .add-field-btn:hover { background: #2a2a2a; color: #fff; border-color: #555; }
 
   .create-field-row {
     display: flex;
@@ -942,7 +971,7 @@
   .remove-field-btn {
     background: none;
     border: none;
-    color: #555;
+    color: #888;
     font-size: 0.85rem;
     padding: 0.2rem 0.35rem;
     cursor: pointer;
@@ -955,7 +984,7 @@
   .reveal-field-btn {
     background: none;
     border: none;
-    color: #666;
+    color: #999;
     font-size: 1.1rem;
     padding: 0.2rem 0.4rem;
     cursor: pointer;
@@ -967,14 +996,14 @@
     transition: background 0.15s, color 0.15s;
   }
 
-  .reveal-field-btn:hover { background: #2a2a2a; color: #ccc; }
+  .reveal-field-btn:hover { background: #2a2a2a; color: #fff; }
 
   .show-all-label {
     display: flex;
     align-items: center;
     gap: 0.35rem;
     font-size: 0.72rem;
-    color: #666;
+    color: #999;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     cursor: pointer;
@@ -986,7 +1015,7 @@
     cursor: pointer;
   }
 
-  .show-all-label:hover { color: #888; }
+  .show-all-label:hover { color: #ccc; }
 
   .modal-error {
     font-size: 0.82rem;
@@ -1003,14 +1032,14 @@
 
   .cancel-btn {
     background: #2a2a2a;
-    color: #aaa;
+    color: #ccc;
   }
 
   .cancel-btn:hover { background: #333; color: #fff; }
 
   .submit-btn { background: #e85d04; }
   .submit-btn:hover { background: #ff6a1a; }
-  .submit-btn:disabled { background: #5a3010; color: #888; cursor: default; }
+  .submit-btn:disabled { background: #5a3010; color: #aaa; cursor: default; }
 
   .code-block {
     background: #0e0e0e;
@@ -1026,7 +1055,7 @@
 
   .modal p {
     font-size: 0.87rem;
-    color: #888;
+    color: #bbb;
     margin: 0 0 0.25rem;
     line-height: 1.5;
   }
