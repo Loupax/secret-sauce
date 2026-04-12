@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +26,7 @@ var rootCmd = &cobra.Command{
 			vaultDir = v
 			return nil
 		}
-		home, err := xdgDataHome()
+		home, err := platformDataDir()
 		if err != nil {
 			return err
 		}
@@ -33,7 +35,14 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func xdgDataHome() (string, error) {
+func platformDataDir() (string, error) {
+	if runtime.GOOS == "windows" {
+		appdata := os.Getenv("APPDATA")
+		if appdata == "" {
+			return "", fmt.Errorf("%%APPDATA%% is not set")
+		}
+		return appdata, nil
+	}
 	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
 		return v, nil
 	}
