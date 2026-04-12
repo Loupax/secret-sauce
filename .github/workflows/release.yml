@@ -71,7 +71,7 @@ jobs:
         run: |
           if [ "${{ matrix.platform }}" = "windows" ]; then
             mv gui/build/bin/sauce-gui.exe build/
-            cd build && zip -r ../secret-sauce-${{ matrix.platform }}.zip .
+            cd build && powershell -Command "Compress-Archive -Path * -DestinationPath ../secret-sauce-${{ matrix.platform }}.zip"
           else
             mv gui/build/bin/sauce-gui build/
             cd build && tar -czf ../secret-sauce-${{ matrix.platform }}.tar.gz .
