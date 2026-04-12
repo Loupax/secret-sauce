@@ -5,6 +5,9 @@ Last updated: 2026-04-12
 
 ## Backlog
 
+### GUI Security / UX
+- [ ] Auto-clear on idle: when GUI loses focus for a configurable timeout, clear the search box and results list, then force a keyring re-handshake so abandoned terminals must re-authenticate
+
 ### GUI Design Improvements
 - [ ] Search/filter bar for secrets list (critical — 300+ secrets, scrolling is unusable)
 - [ ] Delete confirmation dialog (prevent accidental deletion)
