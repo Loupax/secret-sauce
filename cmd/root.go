@@ -61,4 +61,5 @@ func init() {
 	rootCmd.AddCommand(shareCmd)
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(guiCmd)
 }

@@ -1,9 +1,17 @@
 # TODO — secret-sauce
-Last updated: 2026-04-10
+Last updated: 2026-04-12
 
 ## In Progress
 
 ## Backlog
+
+### GUI Design Improvements
+- [ ] Search/filter bar for secrets list (critical — 300+ secrets, scrolling is unusable)
+- [ ] Delete confirmation dialog (prevent accidental deletion)
+- [ ] Normalize field key display (e.g. FOLDERKEEPASS → title case, not ALL_CAPS)
+- [ ] Hide empty-value fields instead of showing blank inputs
+- [ ] Add Secret form: support multiple key/value fields (not just a single value)
+- [ ] Move vault path to status bar at bottom instead of center of screen
 - [ ] Implement atomic file replacement for all vault write operations: write to `[UUID].age.tmp`, fsync, then `os.Rename` to overwrite `[UUID].age`; do not change a secret's UUID when editing its value
 - [ ] Handle duplicate key names during `sauce import 1password`: if two items normalize to the same key, emit a warning to stderr and append the conflicting item's creation date (Unix timestamp from the 1PUX `createdAt` field, formatted as YYYYMMDD) to its key name instead of silently overwriting
 - [ ] Force daemon restart when binary mtime changes: on each CLI invocation, compare the binary's modification time (os.Executable + os.Stat) against a value persisted in the config/state dir from the previous run; if it has changed, force-restart the background daemon before proceeding, guarding against a stale daemon running an old binary after an update
