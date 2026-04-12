@@ -6,6 +6,19 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### GUI
+
+- **Window starts hidden on launch** — the app runs silently in the system tray; no window
+  is shown until the user interacts with the tray icon.
+- **Left-click tray icon** shows and focuses the vault window (macOS / Windows). On Linux
+  with StatusNotifier / appindicator, any click opens the context menu instead.
+- **Right-click context menu** contains *Show Vault* (Linux fallback) and *Quit*.
+- **Closing the window** now hides it rather than quitting the process.
+- **Switched systray library** from `github.com/getlantern/systray` to `fyne.io/systray`
+  (maintained fork) which uses the StatusNotifierItem D-Bus protocol on Linux and adds
+  `SetOnTapped` / `SetOnSecondaryTapped` for left/right click differentiation on
+  macOS and Windows.
+
 ### Breaking Changes
 
 - `.age` envelope format: `Type` field removed; `Value` (string) replaced by `Data` (map). Existing vaults must be re-imported.

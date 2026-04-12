@@ -55,10 +55,6 @@ func (a *App) ready() error {
 	return nil
 }
 
-func (a *App) quit() {
-	runtime.Quit(a.ctx)
-}
-
 // VaultExists reports whether the vault directory has been initialized.
 func (a *App) VaultExists() bool {
 	return guisvc.Exists(a.vaultDir)
