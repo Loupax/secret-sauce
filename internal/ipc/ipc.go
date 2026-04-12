@@ -42,11 +42,11 @@ type Response struct {
 // SocketPath returns a safe Unix socket path for IPC.
 // It prefers XDG_RUNTIME_DIR on Linux, falling back to the system temp directory.
 func SocketPath() string {
-	dir := os.Getenv("XDG_RUNTIME_DIR")
-	if dir == "" {
-		dir = os.TempDir()
+	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+		return filepath.Join(dir, "sauce.sock")
 	}
 
+	dir := os.TempDir()
 	if runtime.GOOS == "windows" {
 		// Windows temp dirs are already user-specific
 		return filepath.Join(dir, "sauce.sock")
