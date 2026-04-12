@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-
 	"github.com/spf13/cobra"
+
+	"github.com/loupax/secret-sauce/internal/config"
 )
 
 var vaultDir string
@@ -18,42 +15,14 @@ var rootCmd = &cobra.Command{
 		if vaultDir != "" {
 			return nil
 		}
-		if v := os.Getenv("SAUCE_DIR"); v != "" {
-			vaultDir = v
-			return nil
-		}
-		if v := os.Getenv("SECRET_SAUCE_DIR"); v != "" {
-			vaultDir = v
-			return nil
-		}
-		home, err := platformDataDir()
+		
+		dir, err := config.DefaultVaultDir()
 		if err != nil {
 			return err
 		}
-		vaultDir = filepath.Join(home, "secret-sauce")
+		vaultDir = dir
 		return nil
 	},
-}
-
-func platformDataDir() (string, error) {
-	if runtime.GOOS == "windows" {
-		if v := os.Getenv("APPDATA"); v != "" {
-			return v, nil
-		}
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("%%APPDATA%% is not set and home directory could not be determined: %w", err)
-		}
-		return filepath.Join(home, "AppData", "Roaming"), nil
-	}
-	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-		return v, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".local", "share"), nil
 }
 
 func Execute() error {
