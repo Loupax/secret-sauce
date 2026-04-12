@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
+
+	"github.com/loupax/secret-sauce/internal/config"
 )
 
 var vaultDir string
@@ -16,32 +15,14 @@ var rootCmd = &cobra.Command{
 		if vaultDir != "" {
 			return nil
 		}
-		if v := os.Getenv("SAUCE_DIR"); v != "" {
-			vaultDir = v
-			return nil
-		}
-		if v := os.Getenv("SECRET_SAUCE_DIR"); v != "" {
-			vaultDir = v
-			return nil
-		}
-		home, err := xdgDataHome()
+		
+		dir, err := config.DefaultVaultDir()
 		if err != nil {
 			return err
 		}
-		vaultDir = filepath.Join(home, "secret-sauce")
+		vaultDir = dir
 		return nil
 	},
-}
-
-func xdgDataHome() (string, error) {
-	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-		return v, nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".local", "share"), nil
 }
 
 func Execute() error {
