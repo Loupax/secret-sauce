@@ -39,15 +39,19 @@ type Response struct {
 	Error   string                `json:"error,omitempty"`
 }
 
-// SocketPath returns a safe Unix socket path.
-// On Windows it uses os.TempDir().
-// On Unix it prefers XDG_RUNTIME_DIR, falling back to /tmp.
+// SocketPath returns a safe Unix socket path for IPC.
+// It prefers XDG_RUNTIME_DIR on Linux, falling back to the system temp directory.
 func SocketPath() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.TempDir(), "sauce.sock")
+	dir := os.Getenv("XDG_RUNTIME_DIR")
+	if dir == "" {
+		dir = os.TempDir()
 	}
-	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+
+	if runtime.GOOS == "windows" {
+		// Windows temp dirs are already user-specific
 		return filepath.Join(dir, "sauce.sock")
 	}
-	return fmt.Sprintf("/tmp/sauce-%d.sock", os.Getuid())
+
+	// On Unix, we include the UID to prevent collisions in shared /tmp
+	return filepath.Join(dir, fmt.Sprintf("sauce-%d.sock", os.Getuid()))
 }
