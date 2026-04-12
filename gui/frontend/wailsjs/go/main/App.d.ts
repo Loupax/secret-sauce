@@ -8,6 +8,8 @@ export function GetSecret(arg1:string):Promise<main.SecretEntry>;
 
 export function GetVaultDir():Promise<string>;
 
+export function ListSecretNames():Promise<Array<string>>;
+
 export function ListSecrets():Promise<Array<main.SecretEntry>>;
 
 export function SetSecret(arg1:string,arg2:Record<string, string>):Promise<void>;

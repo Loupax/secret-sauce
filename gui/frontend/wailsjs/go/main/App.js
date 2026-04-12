@@ -14,6 +14,10 @@ export function GetVaultDir() {
   return window['go']['main']['App']['GetVaultDir']();
 }
 
+export function ListSecretNames() {
+  return window['go']['main']['App']['ListSecretNames']();
+}
+
 export function ListSecrets() {
   return window['go']['main']['App']['ListSecrets']();
 }
