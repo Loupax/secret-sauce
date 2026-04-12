@@ -62,15 +62,6 @@ func isSocketAlive(socketPath string) bool {
 	return resp.OK
 }
 
-func spawnDaemon(timeout time.Duration) error {
-	c := exec.Command(os.Args[0], "daemon", "_serve", "--timeout", timeout.String())
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	c.Stdin = nil
-	c.Stdout = nil
-	c.Stderr = nil
-	return c.Start()
-}
-
 func waitForSocket(socketPath string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
