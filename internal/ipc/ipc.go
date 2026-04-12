@@ -3,6 +3,8 @@ package ipc
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -37,11 +39,19 @@ type Response struct {
 	Error   string                `json:"error,omitempty"`
 }
 
-// SocketPath returns $XDG_RUNTIME_DIR/sauce.sock.
-// Falls back to /tmp/sauce-<uid>.sock if XDG_RUNTIME_DIR is unset.
+// SocketPath returns a safe Unix socket path for IPC.
+// It prefers XDG_RUNTIME_DIR on Linux, falling back to the system temp directory.
 func SocketPath() string {
 	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return dir + "/sauce.sock"
+		return filepath.Join(dir, "sauce.sock")
 	}
-	return fmt.Sprintf("/tmp/sauce-%d.sock", os.Getuid())
+
+	dir := os.TempDir()
+	if runtime.GOOS == "windows" {
+		// Windows temp dirs are already user-specific
+		return filepath.Join(dir, "sauce.sock")
+	}
+
+	// On Unix, we include the UID to prevent collisions in shared /tmp
+	return filepath.Join(dir, fmt.Sprintf("sauce-%d.sock", os.Getuid()))
 }
