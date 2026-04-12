@@ -47,11 +47,14 @@ func ResolveVaultDir() (string, error) {
 
 func platformDataDir() (string, error) {
 	if runtime.GOOS == "windows" {
-		appdata := os.Getenv("APPDATA")
-		if appdata == "" {
-			return "", fmt.Errorf("%%APPDATA%% is not set")
+		if v := os.Getenv("APPDATA"); v != "" {
+			return v, nil
 		}
-		return appdata, nil
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("%%APPDATA%% is not set and home directory could not be determined: %w", err)
+		}
+		return filepath.Join(home, "AppData", "Roaming"), nil
 	}
 	// Linux / macOS: respect XDG_DATA_HOME, fall back to ~/.local/share
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {

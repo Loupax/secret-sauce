@@ -37,11 +37,14 @@ var rootCmd = &cobra.Command{
 
 func platformDataDir() (string, error) {
 	if runtime.GOOS == "windows" {
-		appdata := os.Getenv("APPDATA")
-		if appdata == "" {
-			return "", fmt.Errorf("%%APPDATA%% is not set")
+		if v := os.Getenv("APPDATA"); v != "" {
+			return v, nil
 		}
-		return appdata, nil
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("%%APPDATA%% is not set and home directory could not be determined: %w", err)
+		}
+		return filepath.Join(home, "AppData", "Roaming"), nil
 	}
 	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
 		return v, nil
