@@ -3,12 +3,14 @@ package main
 import (
 	"embed"
 
-	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -20,30 +22,13 @@ var icon []byte
 func main() {
 	app := NewApp()
 
-	// Run the system tray in a separate goroutine
-	go systray.Run(func() {
-		systray.SetIcon(icon)
-		systray.SetTitle("Secret Sauce")
-		systray.SetTooltip("Secret Sauce")
-
-		mShow := systray.AddMenuItem("Show Vault", "Show the Secret Sauce UI")
-		mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
-
-		for {
-			select {
-			case <-mShow.ClickedCh:
-				if app.ctx != nil {
-					runtime.WindowShow(app.ctx)
-				}
-			case <-mQuit.ClickedCh:
-				if app.ctx != nil {
-					runtime.Quit(app.ctx)
-				}
-				systray.Quit()
-				return
-			}
+	AppMenu := menu.NewMenu()
+	FileMenu := AppMenu.AddSubmenu("File")
+	FileMenu.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+		if app.ctx != nil {
+			app.quit()
 		}
-	}, func() {})
+	})
 
 	err := wails.Run(&options.App{
 		Title:  "Secret Sauce",
@@ -54,11 +39,33 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 18, A: 1},
 		OnStartup:        app.startup,
+		Menu:             AppMenu,
 		Bind: []interface{}{
 			app,
 		},
 		Linux: &linux.Options{
 			Icon: icon,
+		},
+		Windows: &windows.Options{
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
+		},
+		Mac: &mac.Options{
+			TitleBar: &mac.TitleBar{
+				TitlebarAppearsTransparent: true,
+				HideTitle:                  false,
+				HideTitleBar:               false,
+				FullSizeContent:            false,
+				UseToolbar:                 false,
+				HideToolbarSeparator:       true,
+			},
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			About: &mac.AboutInfo{
+				Title:   "Secret Sauce",
+				Message: "A local encrypted secret vault.",
+				Icon:    icon,
+			},
 		},
 	})
 	if err != nil {
