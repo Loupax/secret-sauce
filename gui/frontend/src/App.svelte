@@ -27,8 +27,9 @@
   // "+" dropdown
   let showMenu = false;
 
-  // create secret modal
+  // create / edit secret modal
   let showCreate = false;
+  let editingName = null; // null = create mode, string = edit mode
   let createName = '';
   let createFields = [{ key: 'value', value: '' }];
   let createError = '';
@@ -107,6 +108,7 @@
   // --- create secret ---
 
   function openCreate() {
+    editingName = null;
     createName = '';
     createFields = [{ key: 'value', value: '' }];
     createError = '';
@@ -114,8 +116,34 @@
     showMenu = false;
   }
 
+  async function openEdit(name) {
+    // Ensure data is fetched before opening modal.
+    if (!secretData[name]) {
+      loading[name] = true;
+      loading = loading;
+      try {
+        const entry = await GetSecret(name);
+        secretData[name] = entry.data ?? {};
+      } catch (e) {
+        error = e.toString();
+        loading[name] = false;
+        loading = loading;
+        return;
+      }
+      loading[name] = false;
+      loading = loading;
+    }
+    editingName = name;
+    createName = name;
+    createFields = Object.entries(secretData[name]).map(([key, value]) => ({ key, value }));
+    if (createFields.length === 0) createFields = [{ key: 'value', value: '' }];
+    createError = '';
+    showCreate = true;
+  }
+
   function closeCreate() {
     showCreate = false;
+    editingName = null;
   }
 
   function addField() {
@@ -138,8 +166,16 @@
     createError = '';
     try {
       await SetSecret(createName.trim(), data);
-      await refresh();
-      closeCreate();
+      // Clear cache so next expand re-fetches updated values.
+      delete secretData[createName.trim()];
+      secretData = secretData;
+      if (editingName) {
+        // Name list unchanged on edit; just close.
+        closeCreate();
+      } else {
+        await refresh();
+        closeCreate();
+      }
     } catch (e) {
       createError = e.toString();
     } finally {
@@ -216,6 +252,7 @@
                      on:keydown={e => e.key === 'Enter' && toggle(name)}>
                   <span class="secret-name">{name}</span>
                   <span class="chevron">{expanded[name] ? '▲' : '▼'}</span>
+                  <button class="edit" on:click|stopPropagation={() => openEdit(name)}>Edit</button>
                   <button class="delete" on:click|stopPropagation={() => removeSecret(name)}>Delete</button>
                 </div>
 
@@ -303,13 +340,14 @@
     <div class="modal-backdrop" on:click|self={closeCreate} on:keydown={e => e.key === 'Escape' && closeCreate()} role="dialog" aria-modal="true">
       <div class="modal">
         <div class="modal-header">
-          <h2>New Secret</h2>
+          <h2>{editingName ? 'Edit Secret' : 'New Secret'}</h2>
           <button class="close-btn" on:click={closeCreate}>✕</button>
         </div>
 
         <label class="field-label">
           Name
-          <input class="modal-input" bind:value={createName} placeholder="e.g. github" autocomplete="off" />
+          <input class="modal-input" bind:value={createName} placeholder="e.g. github" autocomplete="off"
+                 readonly={!!editingName} class:readonly-input={!!editingName} />
         </label>
 
         <div class="fields-section">
@@ -346,7 +384,7 @@
         <div class="modal-actions">
           <button class="cancel-btn" on:click={closeCreate}>Cancel</button>
           <button class="submit-btn" on:click={submitCreate} disabled={creating}>
-            {creating ? 'Saving…' : 'Create'}
+            {creating ? 'Saving…' : editingName ? 'Save' : 'Create'}
           </button>
         </div>
       </div>
@@ -645,6 +683,8 @@
   }
 
   button:hover { background: #ff6a1a; }
+  button.edit { background: #1a3a5a; }
+  button.edit:hover { background: #1f5080; }
   button.delete { background: #7a1a1a; }
   button.delete:hover { background: #c0392b; }
 
@@ -831,6 +871,8 @@
   }
 
   .modal-input:focus { outline: none; border-color: #e85d04; }
+  .readonly-input { color: #666; cursor: default; }
+  .readonly-input:focus { border-color: #333; }
 
   .fields-section { margin-bottom: 1rem; }
 
