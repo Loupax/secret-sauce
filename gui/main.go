@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"embed"
 
+	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
@@ -11,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -22,11 +25,39 @@ var icon []byte
 func main() {
 	app := NewApp()
 
+	// Register systray without creating a separate GTK main loop
+	systray.Register(func() {
+		systray.SetIcon(icon)
+		systray.SetTitle("Secret Sauce")
+		systray.SetTooltip("Secret Sauce")
+
+		mShow := systray.AddMenuItem("Show Vault", "Show the Secret Sauce UI")
+		mQuit := systray.AddMenuItem("Quit", "Quit the application")
+
+		go func() {
+			for {
+				select {
+				case <-mShow.ClickedCh:
+					if app.ctx != nil {
+						runtime.WindowShow(app.ctx)
+					}
+				case <-mQuit.ClickedCh:
+					if app.ctx != nil {
+						runtime.Quit(app.ctx)
+					}
+					systray.Quit()
+					return
+				}
+			}
+		}()
+	}, func() {})
+
 	AppMenu := menu.NewMenu()
 	FileMenu := AppMenu.AddSubmenu("File")
 	FileMenu.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		if app.ctx != nil {
 			app.quit()
+			systray.Quit()
 		}
 	})
 
@@ -38,7 +69,11 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 18, A: 1},
-		OnStartup:        app.startup,
+		OnStartup: func(ctx context.Context) {
+			// Resets signal handlers so Go can handle panics/signals correctly alongside WebKitGTK
+			runtime.ResetSignalHandlers()
+			app.startup(ctx)
+		},
 		Menu:             AppMenu,
 		Bind: []interface{}{
 			app,
