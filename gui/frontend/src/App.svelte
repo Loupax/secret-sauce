@@ -31,8 +31,7 @@
   let showCreate = false;
   let editingName = null; // null = create mode, string = edit mode
   let createName = '';
-  let createFields = [{ key: 'value', value: '' }];
-  let createFieldRevealed = {}; // index → bool, show/hide per value field
+  let createFields = [{ key: 'value', value: '', revealed: false }];
   let showAllCreate = false;
   let createError = '';
   let creating = false;
@@ -58,6 +57,7 @@
   }
 
   async function toggle(name) {
+    if (loading[name]) return;
     if (expanded[name]) {
       expanded[name] = false;
       expanded = expanded;
@@ -112,8 +112,7 @@
   function openCreate() {
     editingName = null;
     createName = '';
-    createFields = [{ key: 'value', value: '' }];
-    createFieldRevealed = {};
+    createFields = [{ key: 'value', value: '', revealed: false }];
     showAllCreate = false;
     createError = '';
     showCreate = true;
@@ -121,6 +120,7 @@
   }
 
   async function openEdit(name) {
+    if (loading[name]) return;
     // Ensure data is fetched before opening modal.
     if (!secretData[name]) {
       loading[name] = true;
@@ -139,9 +139,8 @@
     }
     editingName = name;
     createName = name;
-    createFields = Object.entries(secretData[name]).map(([key, value]) => ({ key, value }));
-    if (createFields.length === 0) createFields = [{ key: 'value', value: '' }];
-    createFieldRevealed = {};
+    createFields = Object.entries(secretData[name]).map(([key, value]) => ({ key, value, revealed: false }));
+    if (createFields.length === 0) createFields = [{ key: 'value', value: '', revealed: false }];
     showAllCreate = false;
     createError = '';
     showCreate = true;
@@ -150,24 +149,16 @@
   function closeCreate() {
     showCreate = false;
     editingName = null;
-    createFieldRevealed = {};
     showAllCreate = false;
   }
 
   function addField() {
-    createFields = [...createFields, { key: '', value: '' }];
-    if (showAllCreate) {
-      createFieldRevealed[createFields.length - 1] = true;
-      createFieldRevealed = createFieldRevealed;
-    }
+    createFields = [...createFields, { key: '', value: '', revealed: showAllCreate }];
   }
 
   function toggleAllCreate() {
     showAllCreate = !showAllCreate;
-    createFields.forEach((_, i) => {
-      createFieldRevealed[i] = showAllCreate;
-    });
-    createFieldRevealed = createFieldRevealed;
+    createFields = createFields.map(f => ({ ...f, revealed: showAllCreate }));
   }
 
   function removeField(i) {
@@ -175,19 +166,36 @@
   }
 
   async function submitCreate() {
-    if (!createName.trim()) { createError = 'Name is required.'; return; }
+    const nameTrimmed = createName.trim();
+    if (!nameTrimmed) { createError = 'Name is required.'; return; }
+    
+    // Validation: name cannot contain path separators or be reserved names
+    if (nameTrimmed.includes('/') || nameTrimmed.includes('\\')) {
+      createError = 'Name cannot contain slashes.'; return;
+    }
+    if (nameTrimmed === '.' || nameTrimmed === '..') {
+      createError = 'Invalid name.'; return;
+    }
+
     const data = {};
+    const keysSeen = new Set();
     for (const f of createFields) {
-      if (!f.key.trim()) { createError = 'All field keys are required.'; return; }
-      data[f.key.trim()] = f.value;
+      const k = f.key.trim();
+      if (!k) { createError = 'All field keys are required.'; return; }
+      if (keysSeen.has(k)) {
+        createError = `Duplicate field key: "${k}"`; return;
+      }
+      keysSeen.add(k);
+      data[k] = f.value;
     }
     if (Object.keys(data).length === 0) { createError = 'Add at least one field.'; return; }
+    
     creating = true;
     createError = '';
     try {
-      await SetSecret(createName.trim(), data);
+      await SetSecret(nameTrimmed, data);
       // Clear cache so next expand re-fetches updated values.
-      delete secretData[createName.trim()];
+      delete secretData[nameTrimmed];
       secretData = secretData;
       if (editingName) {
         // Name list unchanged on edit; just close.
@@ -392,14 +400,14 @@
               />
               <input
                 class="modal-input val-input"
-                type={createFieldRevealed[i] ? 'text' : 'password'}
+                type={field.revealed ? 'text' : 'password'}
                 value={field.value}
                 on:input={(e) => field.value = e.target.value}
                 placeholder="value"
                 autocomplete="new-password"
               />
-              <button class="reveal-field-btn" on:click={() => { createFieldRevealed[i] = !createFieldRevealed[i]; createFieldRevealed = createFieldRevealed; }} title={createFieldRevealed[i] ? 'Hide' : 'Show'}>
-                {createFieldRevealed[i] ? '🙈' : '👁'}
+              <button class="reveal-field-btn" on:click={() => { field.revealed = !field.revealed; createFields = createFields; }} title={field.revealed ? 'Hide' : 'Show'}>
+                {field.revealed ? '🙈' : '👁'}
               </button>
               {#if createFields.length > 1}
                 <button class="remove-field-btn" on:click={() => removeField(i)}>✕</button>
